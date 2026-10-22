@@ -1,95 +1,77 @@
 # Hydraulics capability design: bit/nozzle pressure loss
 
-**Status:** Normative technical design for the P6 product capability in [`docs/product/prd.md`](../product/prd.md). It defines implementation boundaries and verification gates, not a record of the work that produced it. The product requirements govern user outcomes and safety; [`trd.md`](trd.md) governs cross-capability architecture. This document specializes those rules for P6.
+## 1. Purpose and scope
 
-## 1. Scope and safety boundary
+This document specifies the technical architecture and implementation requirements for the bit/nozzle pressure-loss capability defined by P6 in [`docs/product/prd.md`](../product/prd.md). The product requirements govern user outcomes and safety; the technical requirements in [`trd.md`](trd.md) govern shared architectural constraints. This document defines the capability-specific technical contract.
 
-Add an explicitly requested bit/nozzle pressure-loss contribution to the existing hydraulics calculation. Preserve a separately inspectable bit-loss result and define the physical location and exact components of any aggregate. The aggregate MUST NOT be called standpipe pressure unless surface equipment and every intervening pressure loss are modeled.
+The capability extends a supported hydraulic calculation with an explicitly requested bit/nozzle pressure-loss contribution. It provides an independently inspectable contribution and, only when defined by the approved engineering model, an aggregate with an explicit pressure boundary and included components.
 
-This capability does not add surface-equipment losses, a full network solver, erosion/wear or blockage prediction, non-Newtonian flow, compressible/transient/multiphase flow, cuttings transport, thermal effects, operational authorization, or general WellPlan parity. LAS, vendor-native files, spreadsheets and other import adapters are also out of scope. LAS is an industry exchange format; its presence does not establish compatibility with a proprietary Landmark format.
+The capability does not include surface-equipment losses, a general hydraulic network solver, nozzle erosion or wear prediction, blockage prediction, non-Newtonian flow, compressible/transient/multiphase flow, cuttings transport, thermal effects, or operational authorization. File import/export is outside this capability and requires a separately specified contract.
 
-The capability is for engineering study, not field decisions or safety-critical pressure limits. Software tests establish implementation consistency, not field accuracy.
+This capability is for engineering study only. It MUST NOT be represented as suitable for field decisions or safety-critical pressure limits without independent engineering validation.
 
-## 2. Engineering-model contract
+## 2. Normative language
 
-No equation or coefficient is selected by this architecture document. Before implementation, a drilling engineer MUST approve a capability-specific model contract that states:
+**MUST** and **MUST NOT** state mandatory requirements. **SHOULD** and **SHOULD NOT** state recommended requirements; any deviation requires an explicit technical rationale and review. **MAY** states an option.
 
-- equations, symbols, dimensions and conversions to/from SI;
-- whether inputs are total flow area or nozzle count and diameter, including how total area is derived;
-- coefficient meaning, source, range, and whether fixed, user-supplied or correlated;
-- assumptions and applicability limits for fluid, flow, nozzle geometry and operating conditions;
-- supported and rejected conditions, with explicit error behavior;
-- at least one independently calculated, provenance-complete example with intermediate values, precision and justified tolerance;
-- unit, sign, area-scaling and flow-sensitivity checks; and
-- reviewer, reference edition/version and evidence limitations.
+## 3. Engineering model contract
 
-The ideal-orifice relation `Δp = ρv²/2`, with `v = Q/A`, is dimensional background, not an approved operational model. It does not establish discharge coefficient, physical applicability or vendor-runtime behavior. A formula documented in WellPlan help is documentation evidence only; it MUST NOT be described as a measured output or runtime-validated model. Conflicting formula conventions or assumptions must be resolved in the reviewed model contract rather than hidden in conversion code.
+The implementation MUST use an independently specified physical model. It MUST NOT infer an equation, coefficient, applicability domain, or operating behavior from software structure or undocumented behavior.
 
-Inputs MUST be finite and physically valid. Unsupported conditions MUST be rejected before presenting or storing a result. Calculations MUST be deterministic, pure and non-mutating. Full-precision values feed aggregates; display rounding MUST NOT feed calculations or persistence. Every result value carries a quantity and unit, model identity/version, and applicability/status.
+Before implementation, the model specification MUST define:
 
-## 3. Modular-monolith boundaries
+- equations, symbol definitions, dimensions and conversions to and from SI;
+- nozzle geometry inputs and how total flow area is established;
+- each coefficient's physical meaning, source, valid range and selection policy;
+- fluid, flow, geometry and operating assumptions;
+- applicable and unsupported conditions, including their validation and error behavior;
+- independently justified examples with complete inputs, units, intermediate values, expected results, precision and tolerance; and
+- provenance, limitations and engineering approval for each reference used.
 
-OpenOil remains one deployable hexagonal modular monolith. Dependencies point toward the engineering core:
+Inputs MUST be finite and physically valid. Conditions outside the approved applicability domain MUST be rejected before a result is reported or persisted. Calculations MUST be deterministic, side-effect free and non-mutating. Full-precision values MUST feed any aggregate; display rounding MUST NOT affect calculations or persisted values. Every result value MUST identify its physical quantity and unit, and the result MUST identify its model version and applicability status.
 
-```text
-React study UI → HTTP/API adapter → hydraulics application use case → hydraulics domain
-                                              │                          │
-                                              └── case-store port         └── pure bit-loss model
-                                                       ▲
-                                                       └── SQLite adapter
-```
+A documented equation, software test or mathematical example alone MUST NOT be represented as field validation. Model changes that alter assumptions, coefficients, applicability or results MUST receive a new model version and independently reviewed evidence.
 
-- **Hydraulics domain:** owns SI-oriented contracts, applicability, validation and pure calculations. It MUST NOT import HTTP, UI, SQLite, filesystem or framework APIs.
-- **Application:** coordinates calculation and case use cases, applies validation before writes, combines only explicitly defined contributions and attaches model/schema provenance. Ports express application needs, not SQL operations.
-- **HTTP/API adapter:** validates transport DTOs and versions, invokes use cases, and translates documented error categories. It MUST NOT own equations or write storage directly.
-- **SQLite adapter:** implements persistence ports, serialization and separately authorized migrations. It MUST NOT determine engineering validity or recalculate on load.
-- **Frontend:** submits user inputs and renders the API result. It MUST NOT implement authoritative engineering equations. Tables, summaries and plots use the same returned result.
-- **Composition root:** wires adapters and use cases; deployment choices MUST NOT alter model behavior.
+## 4. Architecture and dependency rules
 
-The existing backend package is `backend/src/wellplan_hydraulics/`, with current physics, application, API, ports, storage, model identity, nozzle-velocity and torque/drag modules. The first change SHOULD add the bit-loss calculation at the existing domain seam and integrate through existing application/API/port boundaries. New package boundaries or file moves are justified only by a concrete cohesion or dependency problem and MUST be incremental, with existing behavior pinned by regression checks. Do not undertake a wholesale directory refactor first. A capability MUST NOT depend on another capability's adapter; shared code is limited to genuinely cross-capability contracts.
+The system MUST remain a single deployable modular monolith. Engineering calculations belong to a framework-independent domain core. Application use cases coordinate validation, calculations and case lifecycle operations. Inbound transport and outbound persistence are replaceable adapters. Dependencies MUST point inward toward domain contracts.
 
-The current frontend composes navigation, hydraulics and saved cases in `frontend/src/App.tsx`; it has study/result/type boundaries in `Results.tsx`, `types.ts`, `NozzleVelocityStudy.tsx` and `TorqueDragStudy.tsx`. Add the P6 input and results within the hydraulics workflow. Extract request/DTO or study components only as needed for this capability. Preserve navigation, accessibility, input invalidation, saved-case interactions and independent temporary studies. Avoid a broad UI rewrite as a prerequisite.
+The bit/nozzle calculation MUST be a deterministic domain operation. The application layer MUST validate the request, invoke the approved model, combine only the contributions defined by that model, and attach model and schema provenance. Transport adapters MUST validate and translate public request/response contracts but MUST NOT contain engineering equations or directly perform persistence. Persistence adapters MUST implement application-defined storage operations but MUST NOT determine engineering applicability or recalculate results on load. A composition boundary wires implementations without altering model behavior.
 
-WellPlan's plugin and binary topology MUST NOT be copied as OpenOil's module structure. REA static inspection found the orchestration assembly has managed metadata and the hydraulics assembly crosses a managed/native boundary; this supports separating orchestration from calculation, but does not reveal OpenOil's domain model or justify mirroring vendor components.
+User-interface code MUST present inputs, invoke the public application interface and render its result; it MUST NOT implement authoritative engineering equations. Tables, summaries and plots MUST derive from the same returned result. A capability MUST NOT depend on another capability's transport or persistence adapter. Shared contracts MUST be limited to concepts genuinely used across capabilities.
 
-## 4. Public contract and compatibility
+Structural decomposition MUST be incremental and justified by cohesive responsibilities or dependency boundaries. It MUST preserve unrelated capability behavior and public contracts; a wholesale restructuring is not a prerequisite for this capability.
 
-P6 is explicitly opt-in. Existing request versions and payloads MUST remain valid and retain their current observable results and save/load behavior. An old request MUST NOT acquire a hidden bit loss or changed aggregate. The API returns the bit-loss contribution separately, along with units, model identity/version, applicability/status and any precisely defined aggregate.
+## 5. Public behavior and compatibility
 
-Request and result versions MUST be explicit whenever a contract meaning or shape is incompatible. Omitted optional input MUST NOT be used to guess a model version or coefficient. Errors retain documented categories (transport validation, unsupported engineering input, missing case, infrastructure failure); infrastructure failure MUST NOT appear as input rejection. Responses disclose no unnecessary submitted values. Rejections MUST NOT produce partial results, persisted records or consumed identifiers.
+The extension MUST be explicitly requested. Requests that do not request the extension MUST preserve their established meaning and results. Adding the extension MUST NOT silently add a pressure contribution to any request contract or change the defined meaning of an aggregate.
 
-## 5. Persistence boundary — design only, no migration
+A result that includes the extension MUST return the bit/nozzle contribution separately, with quantity, unit, model version and applicability/status. Any aggregate MUST identify its included pressure contributions and physical boundary. It MUST NOT be labelled standpipe pressure unless the modeled system includes the complete path to the standpipe measurement boundary.
 
-SQLite remains the local persistence adapter. A saved calculation is an immutable input/result snapshot associated with normalized input, unrounded output, units, model identity/version, input/result schema versions, assumptions or coefficient selection, and creation time. Save validation and calculation precede one atomic write. Loading returns the stored snapshot without implicit recalculation. A future recalculation creates a separately identifiable result linked to the source case and records its model version; it does not overwrite historical output.
+Request and result contracts MUST be explicitly versioned when their meaning or shape is incompatible. Omitted inputs MUST NOT be used to infer a coefficient or model version. Errors MUST distinguish malformed transport input, unsupported engineering conditions, missing resources and infrastructure failures. A failure MUST NOT be presented as a successful result or expose unnecessary submitted values.
 
-The current `CaseStore` stores `input_json`, `result_json` and nullable `provenance_json` in append-only `cases` rows. Missing provenance on older snapshots remains unknown and MUST NOT be inferred from current code. Persisted JSON rejects nonfinite values.
+## 6. Persistence and provenance
 
-This design authorizes no migration and no database-file changes. Any later schema change requires a separate migration design specifying transaction/rollback, backup/restore, idempotent startup, old-snapshot read policy, recovery and compatibility fixtures before implementation. A database migration is not implied by the P6 feature.
+A saved calculation MUST be an immutable association of normalized inputs, unrounded results, units, model identity/version, input/result schema versions, assumptions or coefficient selection, and creation time. Validation and calculation MUST precede one atomic persistence operation. A rejected save MUST create neither a partial record nor a consumed identifier.
 
-## 6. Verification and acceptance gates
+Loading a saved calculation MUST return its stored snapshot without implicit recalculation. Any recalculation MUST create a separately identifiable result linked to its source calculation and record the model version used; it MUST NOT overwrite the original result. Missing provenance MUST remain unknown and MUST NOT be inferred from default model settings.
 
-Before implementation, the model contract in Section 2 is approved and the public request/response and backward-compatibility examples are specified. Implementation proceeds domain-first, then application/API, persistence adapter only if required, and UI.
+Any schema migration MUST have a separate reviewed design defining transaction and rollback behavior, backup and restoration, compatibility and read policy for prior snapshots, idempotence, and recovery verification before the migration is implemented. A capability requirement MUST NOT be treated as authorization to migrate data.
 
-Required evidence includes:
+## 7. User-interface behavior
 
-- independently justified numerical examples and dimensional/unit checks;
-- model applicability, limiting and unsupported-input cases;
-- determinism, finite results and input non-mutation;
-- public API tests for legacy requests and P6 opt-in results/errors;
-- proof calculate performs no write, successful save is atomic, and rejection changes neither stored records nor identifiers;
-- snapshot load without recalculation and preservation of legacy unknown provenance;
-- UI interaction/accessibility checks for edits, stale-result invalidation, errors, units and result contributions; and
-- applicable frontend/backend suites and real browser-to-API flow.
+The user interface MUST identify supported inputs and units, the active model's applicability and limitations, and each result contribution. Editing an input MUST invalidate any result that no longer corresponds to the visible inputs. A failed or unsupported calculation MUST leave no stale result presented as current. Inputs and results MUST be keyboard accessible; information conveyed by plots MUST also be available in a non-graphical form.
 
-No acceptance claim substitutes passing tests for engineering validation. If engineering review or required evidence is unavailable, the capability is not released and the gap is reported explicitly.
+## 8. Verification requirements
 
-## 7. Design evidence and limits
+Acceptance evidence MUST cover:
 
-REA inspected the following installed artifacts statically; it did not load or execute them:
+- every approved numerical example, including dimensional and unit-conversion checks;
+- applicability limits, limiting behavior and unsupported conditions;
+- finite outputs, determinism and non-mutation of inputs;
+- public request/response behavior, including unchanged behavior for requests that omit the extension;
+- calculate-without-save, atomic save, rejection without partial data or consumed identifiers, and snapshot load without recalculation;
+- provenance and model-version visibility; and
+- user interaction, accessibility, stale-result invalidation, error presentation and consistency between tables, summaries and plots.
 
-| Artifact | Identity | Observation | Limitation |
-| --- | --- | --- | --- |
-| `EDK.WebService.Wellplan.dll` | SHA-256 `9f058b5259c79049bea68be527ac2c8f2ad6c16248622b0a44a4ca286c41974f` | Complete managed metadata; 122 types, 701 methods, 6,056 static call edges and 142 user-string literals. | Static metadata/call edges do not establish runtime behavior or the complete application/plugin contract. |
-| `EDK.Hydraulics.dll` | SHA-256 `bb81bf7f4543fa02645332ce750078f5cc85eb44a8bacbe1213ce2177c3a0ae3` | Complete metadata; 482 types, 550 methods and a non-IL/native entry boundary. | Native equation bodies and numerical behavior were not recovered. |
-
-REA Evidence IDs: orchestration artifact `ev_dbaaa3701d677abea0925851fc91ada8879b62283874746e58f2f78e29b6f8fa`, managed members `ev_e3fc7c6e1f25ee6feae581ef82e80f9a494cbbf7b8064ab453b58728f0761717`; hydraulics artifact `ev_b0b91f3d1899a4f687be8a9f26e2b162cbf6800112baafe41d5ee871decf67ed`, managed members `ev_ab0bd41249ce678e0a7f957e5e6bcf56a6208c70bd62e7b85b45ba973e349547`, native boundary `ev_9d2fa77812c8ef7a9529159ea2fe23bd2896d4fbb63a88ef8a96d212b1d974b5`. The installed WellPlan help topic is `C:\Landmark\EDT\WellPlan\webhelp\Topics\c_bit_press_loss_calc.html`; it documents an equation but does not provide a runtime oracle. Static REA and help evidence inform architectural boundaries only; they do not authorize copying vendor code, schemas, identifiers or data.
+Numerical expectations MUST be independently justified and carry declared precision and tolerance. Software verification establishes conformance to the specified implementation contract; engineering validation establishes the suitability of the model for its intended domain. Those conclusions MUST be reported separately.
