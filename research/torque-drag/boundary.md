@@ -1,0 +1,15 @@
+# Torque and drag — engineering study boundary
+
+**Decision:** OpenOil's first torque-and-drag capability is an independent, quasi-static straight-well study. It is **not** a reproduction or validation of WellPlan. Do not use it for operational hookload, torque, buckling, or safety limits.
+
+## Reference evidence and its limit
+
+Static REA inspection of the installed `C:\Landmark\EDT\WellPlan\plugins\DSWE.TorqueDrag\DSWE.TorqueDrag.Calculation.dll` (SHA-256 `09c6d80252bdac6d7cd59149e63f6bb5d2bff0d750eb16a73d85cdd7c6e7a014`, evidence `ev_d1ac69763b27b61e0b59d486b6e4904fa27edb607ef4e603e2b919fe9df9599e`) observed complete managed metadata for a .NET Framework 4.5.1 CIL calculation assembly. This establishes a shipped torque/drag calculation component by artifact name and type, **not** its method, equations, coefficients, input/output semantics, accuracy, or runtime behavior. Neither target code nor proprietary numerical outputs are incorporated here.
+
+## Defined study model
+
+The entire well and concentric string are straight at one inclination `θ` from vertical, `0 ≤ θ < 90°`. Sections are ordered from surface to bottom; each has positive measured length `Lᵢ` (m), pipe outside diameter `Dᵢ` (m) and air weight per measured metre `wᵢ` (N/m). The fluid has constant density `ρ` (kg/m³). Two nonnegative, dimensionless, constant Coulomb coefficients represent axial motion `μa` and contact during rotation `μr`. The diameter is an assumed **closed-pipe displacement envelope**; internal fluid, open ends and string hardware are not modeled. The displaced volume per metre is `πDᵢ²/4` (m³/m); `g = 9.80665 m/s²`.
+
+For each section, effective submerged weight per length `bᵢ = wᵢ − ρgπDᵢ²/4` (N/m) must be **strictly positive**. Its axial gravity load is `Gᵢ = bᵢLᵢ cos θ` (N); the straight-well wall normal estimate is `Nᵢ = bᵢLᵢ sin θ` (N). Friction magnitudes are `Fa,ᵢ = μa Nᵢ` (N) and `Fr,ᵢ = μr Nᵢ` (N). With a freely suspended bottom boundary (no bit load), pickup surface tension is `Σ(Gᵢ + Fa,ᵢ)` (N) and slackoff surface tension is `Σ(Gᵢ − Fa,ᵢ)` (N). Rotating contact torque magnitude is `Σ(Fr,ᵢ Dᵢ/2)` (N·m). Report per-section contributions and totals from the same calculation. Reject cases in which any slackoff contribution is negative; this simple tension-only approximation does not model compression or buckling. In a vertical well, straight-wall normal force, sliding drag and modeled contact torque are zero.
+
+This is a deliberately constrained *weight/contact comparison*, not a general torque-and-drag simulator. Excluded: directional changes/doglegs, curvature-related contact, bending, varying friction, eccentricity and wall clearance, rotation-dependent axial friction coupling, viscous fluid drag, differential sticking, bit/WOB and downhole motor torque, connections, wear, acceleration, elastic deformation, temperature, pressure and buoyancy changes with depth. The model cannot extrapolate across these omissions. Its hand-calculated software fixtures establish implementation consistency, not physical accuracy. Independent engineering validation is necessary before any field use or WellPlan comparison.

@@ -119,7 +119,7 @@ container: `uv run --frozen uvicorn wellplan_hydraulics.api:app --host 0.0.0.0
 --port 8000`, with `PYTHONPATH=/work/src`. Publish to host loopback only in the
 later Docker setup; this API has **no authentication or network security**.
 
-Both POST routes accept this exact shape (all values use the SI units above):
+Both V1 hydraulic POST routes accept this exact shape (all values use the SI units above):
 
 ```json
 {
@@ -194,6 +194,89 @@ List/load never recalculate, including historical inputs unsupported today.
 To recalculate explicitly, submit the desired input to a calculate route; save
 again to retain a new distinct snapshot under the current model. No operation
 replaces the original result or backfills its provenance.
+
+### Calculate-only torque and drag study
+
+`POST /api/torque-drag/calculate` is separate from hydraulic V1/V2. It uses
+`torque_drag.calculate` and never saves a case or allocates a case ID. Startup
+still initializes the existing hydraulic database. There is no torque/drag save
+route or schema migration. Request and response are **raw JSON objects**, without
+an `input`, `result`, version or provenance envelope. All fields are required;
+unknown fields at either level are rejected. Strict numeric fields accept JSON
+numbers (including integers), not strings, booleans, null or nonfinite values.
+The typed request/result schemas are also exposed in OpenAPI.
+
+Request example (vertical, zero-density reference study):
+
+```json
+{
+  "sections": [{"length_m": 10, "pipe_od_m": 0.1, "air_weight_n_m": 100}],
+  "inclination_deg": 0,
+  "density_kg_m3": 0,
+  "axial_friction_coefficient": 0.2,
+  "rotational_friction_coefficient": 0.3
+}
+```
+
+200 response to that request:
+
+```json
+{
+  "sections": [{
+    "submerged_weight_n_m": 100.0,
+    "axial_gravity_n": 1000.0,
+    "normal_force_n": 0.0,
+    "axial_friction_n": 0.0,
+    "rotational_friction_n": 0.0,
+    "pickup_tension_n": 1000.0,
+    "slackoff_tension_n": 1000.0,
+    "rotating_torque_nm": 0.0
+  }],
+  "pickup_tension_n": 1000.0,
+  "slackoff_tension_n": 1000.0,
+  "rotating_torque_nm": 0.0
+}
+```
+
+Sections retain surface-to-bottom input order. Length and OD are metres, air
+and submerged weight per length are N/m, density is kg/m³, inclination is degrees
+from vertical, both friction coefficients are dimensionless, forces/tensions
+are N and torque is N·m. Section tensions and torque are **contributions**, not
+interface loads; the three top-level values are sums of those contributions.
+
+At least one section is required, with positive length, OD and air weight.
+Density and friction coefficients must be nonnegative; `0 <= inclination_deg < 90`.
+Every section must have strictly positive submerged weight and nonnegative
+slackoff tension. Inputs and derived results must be finite and representable.
+Malformed JSON, wrong/missing/extra fields and nonfinite numbers yield exactly
+422 `{"detail":"invalid request body"}`. Domain `ValueError` yields 422
+`{"detail":"<exact domain message>"}`, e.g.
+`{"detail":"inclination_deg must satisfy 0 <= angle < 90"}`,
+`{"detail":"submerged weight must be positive in every section"}` or
+`{"detail":"slackoff tension must be nonnegative in every section"}`.
+Success and rejection are silent (no handler stdout/stderr), leave saved hydraulic
+snapshots unchanged and consume no IDs. Server access logs are independent.
+Existing hydraulic routes and errors are unchanged.
+
+This independent quasi-static study assumes one straight uniformly inclined
+well/string, constant section weights/ODs, a closed-pipe buoyancy displacement
+envelope, constant fluid density and Coulomb contact, and a freely suspended
+bottom. It excludes doglegs, buckling/compression, tension-dependent normal
+force, bit load, internal fluid/open-end effects, axial/rotation coupling and
+viscous drag. It is not WellPlan parity or a field-suitability prediction.
+See [the engineering boundary](../research/torque-drag/boundary.md) for equations
+and exclusions; independent engineering validation remains necessary.
+
+Rebuild after source/test changes because tests are copied into the image:
+
+```bash
+docker compose build backend
+docker compose run --rm --no-deps backend uv run --frozen python -m unittest discover -s tests -p 'test_torque_drag_api.py' -v
+```
+
+Tests use fresh system temporary databases, observe stored data through the
+public HTTP routes, and check exact errors, silence, unchanged snapshots/IDs
+and preservation of hydraulic validation with the new request shape.
 
 ### API and full-suite verification (Docker only)
 

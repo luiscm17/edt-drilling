@@ -41,6 +41,25 @@ function api(records: (Omit<typeof record, 'provenance'> & { provenance: typeof 
 }
 
 describe('OpenOil public V2 workbench', () => {
+  it('retains hydraulic snapshots and ledger while the independent study is edited', async () => {
+    const fetcher = api([record]); const user = userEvent.setup(); render(<App />);
+    await user.click(await screen.findByRole('button', { name: /Load case 1/ }));
+    await screen.findByRole('table', { name: 'Section pressure losses' });
+    const study = screen.getByRole('region', { name: 'Torque & drag study' });
+    await user.clear(within(study).getByLabelText('Study density (kg/m³)'));
+    await user.type(within(study).getByLabelText('Study density (kg/m³)'), '900');
+    expect(screen.getByLabelText('Density (kg/m³)')).toHaveValue(1000);
+    expect(screen.getByRole('table', { name: 'Section pressure losses' })).toHaveTextContent('1,000');
+    expect(screen.getByRole('button', { name: /Load case 1/ })).toBeVisible();
+    fetcher.mockResolvedValueOnce(Response.json({ ...record, id: 2 }, { status: 201 }));
+    await user.click(screen.getByRole('button', { name: 'Save case' }));
+    expect(fetcher).toHaveBeenCalledWith('/api/v2/cases', expect.objectContaining({
+      method: 'POST', body: JSON.stringify({ input_schema_version: '1', input }),
+    }));
+    expect(within(study).getByLabelText('Study density (kg/m³)')).toHaveValue(900);
+    expect(fetcher.mock.calls.some(([url]) => String(url).includes('torque-drag'))).toBe(false);
+  });
+
   it('edits SI inputs, posts only the strict V2 envelope, and clears stale results', async () => {
     const fetcher = api(); const user = userEvent.setup(); render(<App />);
     expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('OpenOil');

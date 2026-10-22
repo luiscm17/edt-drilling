@@ -84,6 +84,16 @@ figcaption h3 { font-family: Georgia, serif; font-size: 1.3rem; font-weight: 400
 .result-note { border-top: 1px solid var(--line); padding-top: 1rem; margin-top: 1.8rem; }
 footer { font-size: .8rem; color: #496057; line-height: 1.7; max-width: 1000px; padding: 1.8rem 0 0; }
 footer strong { color: var(--ink); }
+.study-nav { display: flex; flex-wrap: wrap; gap: .8rem; margin-bottom: 1.4rem; }
+.study-nav a { color: var(--ink); border-bottom: 2px solid var(--rust); padding: .7rem .9rem; font: 600 .8rem "Consolas", monospace; text-decoration: none; background: #fbfaf5; }
+.study-nav a:hover { background: #f4e9d6; }
+.torque-study { margin-top: 2rem; border-top-color: var(--rust); scroll-margin-top: 1rem; }
+.study-heading { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 1rem; align-items: center; }
+.study-badge { border: 1px solid var(--rust); color: #783316; padding: .6rem; font: .72rem "Consolas", monospace; letter-spacing: .08em; }
+.study-layout { display: grid; grid-template-columns: minmax(280px, .85fr) minmax(0, 1.55fr); gap: 2rem; }
+.study-layout > * { min-width: 0; }
+.study-empty { background: #f1f0e8; border-left: 3px solid var(--rust); padding: 2rem 1rem; font: .8rem/1.8 "Consolas", monospace; }
+@media (max-width: 900px) { .study-layout { grid-template-columns: 1fr; } }
 .skip { position: absolute; top: -80px; left: 1rem; background: #fff; padding: .8rem; z-index: 10; }
 .skip:focus { top: 1rem; }
 .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
