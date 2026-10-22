@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Results } from './Results';
 import { TorqueDragStudy } from './TorqueDragStudy';
+import { NozzleVelocityStudy } from './NozzleVelocityStudy';
 import type { Inputs, Snapshot, SavedCase, Section } from './types';
 import './styles.css';
 
@@ -34,7 +35,7 @@ async function request<T>(path: string, input?: Inputs): Promise<T> {
 }
 
 export default function App() {
-  const [study, setStudy] = useState<'hydraulics' | 'torque-drag'>('hydraulics');
+  const [study, setStudy] = useState<'hydraulics' | 'torque-drag' | 'nozzle-velocity'>('hydraulics');
   const [inputs, setInputs] = useState(initial);
   const [snapshot, setSnapshot] = useState<Snapshot | null>(null);
   const [cases, setCases] = useState<SavedCase[]>([]);
@@ -78,7 +79,7 @@ export default function App() {
   }
 
   return <>
-    <a className="skip" href={study === 'hydraulics' ? '#inputs' : '#torque-drag'}>Skip to inputs</a>
+    <a className="skip" href={study === 'hydraulics' ? '#inputs' : `#${study}`}>Skip to inputs</a>
     <header className="masthead">
       <div><p className="eyebrow">Drilling engineering workbench</p><h1>OpenOil<span>Independent models · Auditable results</span></h1></div>
       <div className="stamp">SI / ENGINEERING<span>LOCAL WORKSPACE</span><span>NOT VALIDATED FOR FIELD USE</span></div>
@@ -96,16 +97,21 @@ export default function App() {
           <span className="nav-index" aria-hidden="true">02</span>Torque & drag study
           <small>Pickup · Slackoff · Contact torque</small>
         </button>
-        <p className="nav-note">Two independent studies.<br />Hydraulic snapshots are saved locally; contact studies are temporary.</p>
+        <button type="button" aria-current={study === 'nozzle-velocity' ? 'page' : undefined}
+          aria-controls="nozzle-view" onClick={() => setStudy('nozzle-velocity')}>
+          <span className="nav-index" aria-hidden="true">03</span>Nozzle velocity study
+          <small>Flow · Total area · Velocity</small>
+        </button>
+        <p className="nav-note">Three independent studies.<br />Only hydraulic snapshots are saved locally; other studies are temporary.</p>
       </nav>
     <main>
-      <div className="view-heading"><div><p className="eyebrow">Analysis / {study === 'hydraulics' ? '01' : '02'}</p>
-        <h2>{study === 'hydraulics' ? 'Hydraulics' : 'Torque & drag'}</h2></div>
+      <div className="view-heading"><div><p className="eyebrow">Analysis / {study === 'hydraulics' ? '01' : study === 'torque-drag' ? '02' : '03'}</p>
+        <h2>{study === 'hydraulics' ? 'Hydraulics' : study === 'torque-drag' ? 'Torque & drag' : 'Nozzle velocity'}</h2></div>
         <span className="view-mode">{study === 'hydraulics' ? 'SNAPSHOT WORKSPACE' : 'CALCULATE ONLY'}</span></div>
       {/* Keep inactive studies mounted so navigation never discards work or repeats requests. */}
       <div id="hydraulics-view" hidden={study !== 'hydraulics'}>
       <aside className="scope" aria-label="Engineering scope warning">
-        <strong>Hydraulics model / Explicit limits. No reference-solver parity claimed.</strong> Simplified Newtonian, incompressible, single-phase flow in a concentric vertical well. Not validated for field decisions or safety-critical limits in either study.
+        <strong>Hydraulics model / Explicit limits. No reference-solver parity claimed.</strong> Simplified Newtonian, incompressible, single-phase flow in a concentric vertical well. Not validated for field decisions or safety-critical limits in any study.
       </aside>
       <div className="workspace grid items-start gap-6">
         <section className="inputs panel" id="inputs" tabIndex={-1} aria-labelledby="input-heading">
@@ -162,6 +168,7 @@ export default function App() {
       </div>
       </div>
       <div id="torque-view" hidden={study !== 'torque-drag'}><TorqueDragStudy /></div>
+      <div id="nozzle-view" hidden={study !== 'nozzle-velocity'}><NozzleVelocityStudy /></div>
       <footer><strong>Know the boundary.</strong> Hydraulics excludes cuttings, bit optimization, swab/surge, real-time data and torque/drag coupling. Its vertical model excludes eccentricity, roughness, inclination, non-Newtonian rheology and thermal effects. The separate torque/drag study has its own straight-well limits. Independently validate before any engineering use.</footer>
     </main>
     </div>
