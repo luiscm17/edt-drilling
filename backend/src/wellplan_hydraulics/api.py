@@ -1,5 +1,6 @@
 """Local JSON API for the independent simplified hydraulics model."""
 from contextlib import asynccontextmanager
+from dataclasses import asdict
 import os
 from typing import Literal
 
@@ -13,6 +14,7 @@ from wellplan_hydraulics.application import (
 )
 from wellplan_hydraulics.physics import Section, calculate
 from wellplan_hydraulics.storage import CaseStore
+from wellplan_hydraulics import torque_drag
 
 
 class SectionInput(BaseModel):
@@ -49,6 +51,41 @@ class VersionedCalculationInput(BaseModel):
     input: CalculationInput
 
 
+class TorqueDragSectionInput(BaseModel):
+    model_config = ConfigDict(extra='forbid', strict=True, allow_inf_nan=False)
+    length_m: float
+    pipe_od_m: float
+    air_weight_n_m: float
+
+
+class TorqueDragInput(BaseModel):
+    model_config = ConfigDict(extra='forbid', strict=True, allow_inf_nan=False)
+    sections: list[TorqueDragSectionInput]
+    inclination_deg: float
+    density_kg_m3: float
+    axial_friction_coefficient: float
+    rotational_friction_coefficient: float
+
+
+class TorqueDragTotals(BaseModel):
+    model_config = ConfigDict(extra='forbid', strict=True, allow_inf_nan=False)
+    pickup_tension_n: float
+    slackoff_tension_n: float
+    rotating_torque_nm: float
+
+
+class TorqueDragSectionResult(TorqueDragTotals):
+    submerged_weight_n_m: float
+    axial_gravity_n: float
+    normal_force_n: float
+    axial_friction_n: float
+    rotational_friction_n: float
+
+
+class TorqueDragResult(TorqueDragTotals):
+    sections: list[TorqueDragSectionResult]
+
+
 def create_app(db_path=None):
     """Create an app backed by a file; schema initialization occurs at startup."""
     store = CaseStore(db_path if db_path is not None
@@ -77,6 +114,23 @@ def create_app(db_path=None):
     @app.exception_handler(MissingCase)
     async def missing_case(request, error):
         return JSONResponse(status_code=404, content={'detail': str(error)})
+
+    @app.post('/api/torque-drag/calculate', response_model=TorqueDragResult)
+    def calculate_torque_drag(inputs: TorqueDragInput):
+        try:
+            result = torque_drag.calculate(
+                sections=[torque_drag.Section(**section.model_dump())
+                          for section in inputs.sections],
+                inclination_deg=inputs.inclination_deg,
+                density_kg_m3=inputs.density_kg_m3,
+                axial_friction_coefficient=inputs.axial_friction_coefficient,
+                rotational_friction_coefficient=inputs.rotational_friction_coefficient,
+            )
+        except ValueError as error:
+            raise HTTPException(status_code=422, detail=str(error)) from None
+        body = asdict(result)
+        body['sections'] = list(body['sections'])
+        return body
 
     @app.post('/api/calculate')
     def calculate_case(inputs: CalculationInput):
