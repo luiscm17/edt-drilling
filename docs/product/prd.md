@@ -24,6 +24,7 @@ Users shall be able to:
 | P3 | Inspect results and limitations. | A summary, section audit and pressure profile refer to the same input; plots have accessible tabular values; applicability limits remain visible. |
 | P4 | Retain and revisit a local case. | Saving creates a distinct input/result snapshot; listing and loading preserve that snapshot without silently recalculating it. |
 | P5 | Prevent misleading output. | Invalid or unsupported inputs and failed requests show an actionable error, leave no false result visible and never save a partial case. Editing inputs invalidates the displayed result until recalculation. |
+| P6 | Calculate an explicitly requested bit/nozzle pressure-loss contribution. | The result identifies bit/nozzle loss separately from existing hydraulic contributions, shows units and applicability, and defines any aggregate and its pressure boundary. Unsupported conditions fail visibly; requests using the existing base contract retain their established behavior. |
 
 ### Applicability and safety boundary
 
@@ -34,10 +35,13 @@ Pipe friction is not a standpipe-pressure prediction. Units and supported input
 ranges shall be explicit to users; unsupported conditions shall be rejected rather
 than extrapolated without disclosure.
 
-Bit/nozzle and surface losses, roughness, eccentricity, inclination,
-non-Newtonian rheology, cuttings, thermal or compressibility effects, transients,
-swab/surge, torque/drag and live-data integration are outside this capability.
-They are not implied by the presence of a pressure or ECD result.
+The base hydraulic calculation excludes bit/nozzle and surface losses, roughness,
+eccentricity, inclination, non-Newtonian rheology, cuttings, thermal or
+compressibility effects, transients, swab/surge, torque/drag and live-data
+integration. The separately requested bit/nozzle extension is governed by P6 and
+[`docs/architecture/hydraulics-capability-design.md`](../architecture/hydraulics-capability-design.md);
+it does not silently change the base calculation. Surface losses and the other
+listed effects remain out of scope. None is implied by a pressure or ECD result.
 
 **OpenOil is not validated for field decisions or safety-critical pressure limits.**
 Display precision and passing software tests do not establish engineering
@@ -63,5 +67,5 @@ comparisons, import/export and live-data integration are candidates, not product
 commitments. Each capability requires its own user problem, applicability domain,
 units, failure behavior, measurable acceptance criteria and evidence for any
 engineering claims. The [technical requirements](../architecture/trd.md) govern
-how capabilities remain interoperable; capability-specific documents define
-their own models and verification.
+how capabilities remain interoperable; the [hydraulics capability design](../architecture/hydraulics-capability-design.md)
+defines the technical boundary for P6.
