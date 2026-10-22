@@ -13,6 +13,12 @@ Scope: already-running local WellPlan; process discovery, one bounded REA read-o
 
 Prior static evidence for the mixed-mode hydraulic assembly and documented nozzle equation is in [`research/hydraulics/003-wellplan-parity-evidence.md`](../hydraulics/003-wellplan-parity-evidence.md). Neither that equation nor the new module observation is a measured WellPlan output.
 
+## Subsequent read-only source check
+
+The shipped EDM Administration help (`C:\Landmark\EDT\Documentation\Admin Utility Help\Landmark\EDM_Database\Database_Properties.htm`) says its Data Source tab displays the database product, version, location, logged-in user and ODBC driver. `Login_to_EDM.htm` and `Menus_and_Toolbars/File_Menu/New/Data_Source_Command.htm` describe an ODBC DSN selected during login. The shipped `Documentation/WP.pdf` workflow creates cases from designs in Well Explorer and applies a System Workspace there; a workspace is not shown to be an isolated filesystem directory.
+
+A host read-only check found local service `MSSQL$EDM5000` running, as well as `LGC EDM Simultaneous Activity Monitor`; WellPlan PID 19120 had one established loopback TCP connection, but its remote port was not identified as a database port. These facts make a local SQL Server EDM instance plausible, **not proven as the active DSN**. A sampled Windows UI Automation tree had no exact `Database` or `Data Source` control label; it did have `Well Explorer`. No UI navigation, ODBC registration, SQL catalog or case contents were inspected. The selected database, record count and write targets remain unknown.
+
 ## Isolation gate before a reference run
 
 The user reports a newly installed application and a database-access prompt at launch; the presence or absence of bundled/demo or user records has **not** been verified. The credentials shared in conversation were not submitted, retained, or written to tools or artifacts. Do not infer that a newly installed database is disposable.
