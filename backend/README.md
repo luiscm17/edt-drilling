@@ -1,17 +1,11 @@
-# Independent simplified hydraulics core
+# OpenOil hydraulic calculation model
 
-This is an **independent, simplified steady incompressible single-phase
-Newtonian vertical-well model**, not WellPlan numerical equivalence or a
-validated operational well-design tool. Do not use it for safety-critical
-pressure limits or field decisions without independent engineering validation.
-
-## Reference boundary
-
-The bounded REA managed-assembly inspection recorded in
-`odd/tasks/wellplan-hydraulics.md`, Log L5, identified
-`DSWE.Hydraulics.Calculation.dll` as a managed assembly. That observation
-**does not establish its formulas or execution**. The formulas below are
-independent engineering assumptions; no proprietary implementation is copied.
+This is a **simplified steady incompressible single-phase Newtonian
+vertical-well model**, not a validated operational well-design tool. Do not
+use it for safety-critical pressure limits or field decisions without
+independent engineering validation. The equations and applicability boundaries
+below define this model; unsupported conditions are rejected rather than
+silently extrapolated.
 
 ## Python interface and SI units
 
