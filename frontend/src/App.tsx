@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Results } from './Results';
+import { TorqueDragStudy } from './TorqueDragStudy';
 import type { Inputs, Snapshot, SavedCase, Section } from './types';
 import './styles.css';
 
@@ -78,10 +79,14 @@ export default function App() {
   return <>
     <a className="skip" href="#inputs">Skip to inputs</a>
     <header className="masthead">
-      <div><p className="eyebrow">Independent engineering / Study series 01</p><h1>OpenOil<span>Drilling hydraulics</span></h1></div>
+      <div><p className="eyebrow">Independent engineering / Study series 01</p><h1>OpenOil<span>Hydraulics / Torque & drag</span></h1></div>
       <div className="stamp">HYD / 01<span>SI · VERTICAL · STEADY STATE</span><span>LOCAL ENGINEERING WORKBENCH</span></div>
     </header>
     <main>
+      <nav className="study-nav" aria-label="Workbench studies">
+        <a href="#inputs">Hydraulics & saved cases</a>
+        <a href="#torque-drag">Torque & drag study</a>
+      </nav>
       <aside className="scope" aria-label="Engineering scope warning">
         <strong>Study model / Explicit limits. No reference-solver parity claimed.</strong> Simplified Newtonian, incompressible, single-phase flow in a concentric vertical well. Not validated for field decisions or safety-critical pressure limits.
       </aside>
@@ -138,7 +143,8 @@ export default function App() {
           <p className="result-note">Gauge pressure; zero surface annular pressure. Pipe friction is not standpipe pressure. No bit/nozzle or surface losses. Display rounding does not imply engineering accuracy.</p>
         </section>
       </div>
-      <footer><strong>Know the boundary.</strong> No cuttings, bit optimization, swab/surge, real-time data or torque/drag. No eccentricity, roughness, inclination, non-Newtonian rheology or thermal effects. Independently validate before any engineering use.</footer>
+      <TorqueDragStudy />
+      <footer><strong>Know the boundary.</strong> Hydraulics excludes cuttings, bit optimization, swab/surge, real-time data and torque/drag coupling. Its vertical model excludes eccentricity, roughness, inclination, non-Newtonian rheology and thermal effects. The separate torque/drag study has its own straight-well limits. Independently validate before any engineering use.</footer>
     </main>
   </>;
 }

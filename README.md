@@ -2,8 +2,9 @@
 
 OpenOil is a drilling-engineering workbench for exploring calculations with
 explicit assumptions, auditable section results and saved input/result snapshots.
-The hydraulic MVP models steady, incompressible, single-phase Newtonian flow in
-a concentric vertical well.
+The hydraulic capability models steady, incompressible, single-phase Newtonian
+flow in a concentric vertical well, with saved snapshots. A separate, non-persistent
+torque-and-drag study explores quasi-static contact in a straight inclined well.
 
 **Not validated for field decisions or safety-critical pressure limits.** Passing
 tests and display precision do not establish engineering accuracy. Independent
@@ -23,6 +24,8 @@ docker compose up --build
 
 Open **http://127.0.0.1:5173**. Stop the foreground app with Ctrl+C.
 
+### Hydraulics & saved cases
+
 1. Edit sections in surface-to-bottom order. Lengths and diameters use **m**;
    section length equals its vertical depth increment.
 2. Enter density (**kg/m³**), dynamic viscosity (**Pa·s**) and flow (**m³/s**).
@@ -33,13 +36,35 @@ Open **http://127.0.0.1:5173**. Stop the foreground app with Ctrl+C.
    restores stored inputs/results without recalculation; **Refresh cases** reloads
    the ledger. Each successful save creates a distinct ID.
 
+### Torque & drag study (calculate only)
+
+Use the **Torque & drag study** navigation link (Tab then Enter works) to reach
+the separate panel; hydraulics and its case ledger remain available above it.
+
+1. Enter sections in surface-to-bottom order: measured length (**m**), pipe OD
+   (**m**) and air weight (**N/m**). Add/remove sections without changing hydraulics.
+2. Enter one inclination from vertical (**degrees**, 0 ≤ angle < 90), fluid density
+   (**kg/m³**, nonnegative), and dimensionless nonnegative axial and rotational
+   friction coefficients. Section length, OD and air weight must be positive.
+3. Select **Calculate study** for pickup/slackoff surface tension (**N**) and
+   rotating contact torque (**N·m**), plus an ordered table of all section
+   contributions. Contributions are not interface loads. The wide audit table is
+   keyboard-focusable for horizontal scrolling.
+
+This panel sends raw numeric JSON to `POST /api/torque-drag/calculate`, without a
+V2 envelope. It has no save action, provenance snapshot or persistent cases, and
+never changes the hydraulic ledger. Edits, a new request or any request failure
+clear its previous result. Domain rejections appear as an alert with backend detail;
+network and non-JSON errors also permit retry. See the exact
+[API contract](backend/README.md#calculate-only-torque-and-drag-study).
+
 Errors appear in an alert without displaying a false result. The navy/oxide/cream
 instrument panel uses Recharts for comparable friction bars and pressure traverses,
 with Tailwind CSS v4 utilities and custom instrument styling. Every chart has a
 tabular equivalent; wide tables scroll on narrow screens. No external font service
 or decorative component library is required.
 
-The browser uses `POST /api/v2/calculate`, `POST /api/v2/cases`,
+For hydraulics, the browser uses `POST /api/v2/calculate`, `POST /api/v2/cases`,
 `GET /api/v2/cases` and `GET /api/v2/cases/{id}`. Both POST routes receive exactly
 `{"input_schema_version":"1","input":{...}}`, with numeric SI inputs. Results
 show the returned model identifier/version, schema versions, creation time and
@@ -47,7 +72,9 @@ recorded assumptions. Legacy snapshots with null provenance are visibly labelled
 **Unknown model · legacy snapshot**, never attributed to the current model.
 Calculate explicitly to obtain a new result; loading never recalculates.
 
-## Model boundary
+## Model boundaries
+
+### Hydraulics
 
 | Topic | Supported scope |
 | --- | --- |
@@ -61,6 +88,19 @@ hydrostatic total, section lengths and cumulative returned annular losses; the U
 contains no hydraulic model or gravity constant. Hydrostatic and circulating
 curves can overlap when friction is small. Tables and charts use the same snapshot.
 Rounding is presentation, not an accuracy guarantee.
+
+### Torque and drag
+
+The independent study assumes one straight uniformly inclined well/string,
+constant per-section air weight and OD, constant fluid density and Coulomb
+friction, a closed-pipe buoyancy displacement envelope and a freely suspended
+bottom. Nonpositive submerged weight and negative slackoff contributions are
+rejected. There are **no doglegs, buckling/compression, bit load, internal
+fluid/open-end effects, tension-dependent normal force, axial/rotation coupling
+or viscous drag**. This is not a general torque-and-drag simulator, a field
+suitability prediction or WellPlan parity. Two-decimal display rounding is not
+accuracy; small contributions may display as zero. See the
+[engineering boundary and equations](research/torque-drag/boundary.md).
 
 ## Product and architecture
 
@@ -124,4 +164,5 @@ UI tests use mocked HTTP and do not replace a real browser/API integration check
 Backend tests cover numerical behavior, HTTP validation and snapshot persistence,
 not real-well accuracy. Test caches and build output remain in containers rather
 than host `node_modules` or `.venv`. Rebuild after changes to package manifests or
-configuration not mounted by Compose.
+configuration not mounted by Compose. Tests are copied into the image: run
+`docker compose build frontend` before frontend test runs after source/test edits.
