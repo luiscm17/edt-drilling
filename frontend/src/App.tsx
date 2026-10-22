@@ -80,7 +80,7 @@ export default function App() {
     <a className="skip" href="#inputs">Skip to inputs</a>
     <header className="masthead">
       <div><p className="eyebrow">Independent engineering / Study series 01</p><h1>OpenOil<span>Hydraulics / Torque & drag</span></h1></div>
-      <div className="stamp">HYD / 01<span>SI · VERTICAL · STEADY STATE</span><span>LOCAL ENGINEERING WORKBENCH</span></div>
+      <div className="stamp">OPENOIL / 02<span>SI · TWO BOUNDED STUDIES</span><span>LOCAL ENGINEERING WORKBENCH</span></div>
     </header>
     <main>
       <nav className="study-nav" aria-label="Workbench studies">
@@ -88,7 +88,7 @@ export default function App() {
         <a href="#torque-drag">Torque & drag study</a>
       </nav>
       <aside className="scope" aria-label="Engineering scope warning">
-        <strong>Study model / Explicit limits. No reference-solver parity claimed.</strong> Simplified Newtonian, incompressible, single-phase flow in a concentric vertical well. Not validated for field decisions or safety-critical pressure limits.
+        <strong>Hydraulics model / Explicit limits. No reference-solver parity claimed.</strong> Simplified Newtonian, incompressible, single-phase flow in a concentric vertical well. Not validated for field decisions or safety-critical limits in either study.
       </aside>
       <div className="workspace grid items-start gap-6">
         <section className="inputs panel" id="inputs" aria-labelledby="input-heading">
