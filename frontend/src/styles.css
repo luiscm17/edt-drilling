@@ -1,29 +1,29 @@
-@charset "UTF-8";
+@import "tailwindcss";
 :root {
-  font-family: "Segoe UI", "Trebuchet MS", sans-serif;
-  color: #1b343c; background: #e9e8e1; font-synthesis: none;
-  --ink: #172e35; --teal: #167065; --rust: #a84424; --line: #c4cec8;
+  font-family: "Trebuchet MS", "Lucida Sans Unicode", sans-serif;
+  color: #142b3b; background: #e8e6dd; font-synthesis: none;
+  --ink: #142b3b; --rust: #a64026; --line: #c6c9c2;
 }
 * { box-sizing: border-box; }
 body { margin: 0; }
 button, input { font: inherit; }
 button { cursor: pointer; border: 1px solid #59706f; border-radius: 3px; background: transparent; color: var(--ink); padding: .65rem .9rem; font-weight: 600; }
-button:hover:not(:disabled) { background: #dce9e2; }
+button:hover:not(:disabled) { background: #e4e7e5; border-color: var(--ink); }
 button:disabled { opacity: .5; cursor: not-allowed; }
 :focus-visible { outline: 3px solid #b95120; outline-offset: 3px; }
-.masthead { background: var(--ink); color: #f5f2e7; padding: 2rem max(4vw, 1rem); display: flex; justify-content: space-between; gap: 2rem; border-top: 6px solid #c36a34; }
-h1 { font-family: Georgia, "Times New Roman", serif; font-size: clamp(2rem, 4vw, 3.3rem); font-weight: 400; letter-spacing: -.04em; margin: .35rem 0 0; }
-h1 span { color: #b8cec3; }
+.masthead { background: var(--ink); color: #f5f2e7; padding: 2rem max(4vw, 1rem); display: flex; justify-content: space-between; gap: 2rem; border-top: 5px solid var(--rust); }
+h1 { font-family: Georgia, "Times New Roman", serif; font-size: clamp(2.8rem, 5vw, 4.5rem); font-weight: 400; letter-spacing: -.05em; line-height: 1.1; margin: .6rem 0 0; }
+h1 span { display: block; color: #c6ced0; font: .85rem "Consolas", monospace; text-transform: uppercase; letter-spacing: .18em; margin-top: .9rem; }
 .eyebrow { font: 600 .72rem "Consolas", "Courier New", monospace; letter-spacing: .15em; text-transform: uppercase; margin: 0 0 .6rem; }
 .stamp { border-left: 1px solid #57706f; padding-left: 1.5rem; align-self: center; font: 1.2rem "Consolas", monospace; color: #edb68c; }
 .stamp span { display: block; color: #b8cec3; font-size: .65rem; margin-top: .5rem; letter-spacing: .09em; }
 main { padding: 1.4rem max(4vw, 1rem) 2rem; max-width: 1800px; margin: auto; }
 .scope { background: #f4e9d6; border-left: 4px solid var(--rust); padding: 1rem 1.2rem; line-height: 1.6; font-size: .88rem; margin-bottom: 1.5rem; }
 .scope strong { display: block; color: #783316; }
-.workspace { display: grid; grid-template-columns: minmax(340px, .85fr) minmax(0, 1.55fr); gap: 1.5rem; align-items: start; }
-.panel { background: #fbfaf5; border: 1px solid #c1c8bf; box-shadow: 0 3px 0 #d5d9d1; padding: 1.5rem; min-width: 0; }
+.workspace { grid-template-columns: minmax(340px, .85fr) minmax(0, 1.55fr); }
+.panel { background: #fbfaf5; border: 1px solid #b9c1c2; border-top: 3px solid var(--ink); box-shadow: 0 3px 0 #d5d9d1; padding: 1.5rem; min-width: 0; }
 .section-heading { border-bottom: 2px solid var(--ink); padding-bottom: 1rem; margin-bottom: 1.3rem; }
-.section-heading .eyebrow { color: #53736b; }
+.section-heading .eyebrow { color: #526774; }
 h2 { font-family: Georgia, serif; font-size: 1.5rem; margin: 0; font-weight: 400; }
 h3 { font-size: 1rem; margin: 1.4rem 0 .8rem; }
 .hint, figcaption p, .result-note { font-size: .8rem; line-height: 1.65; color: #50645e; }
@@ -52,6 +52,11 @@ button.primary:hover:not(:disabled) { background: #28544f; }
 .empty p { max-width: 360px; line-height: 1.7; color: #50645e; }
 .empty span { margin-top: 2rem; font: .65rem "Consolas", monospace; letter-spacing: .12em; }
 .well-icon { border: 3px double #839b90; border-top: 0; height: 85px; width: 38px; font-size: 2rem; color: #537366; padding-top: 1rem; }
+.readouts { margin-bottom: 1.2rem; }
+.readout { border: 1px solid var(--line); border-top: 3px solid var(--rust); padding: 1rem .8rem; background: #f1f0e8; }
+.readout span { display: block; font: .65rem "Consolas", monospace; letter-spacing: .05em; text-transform: uppercase; }
+.readout strong { display: block; font: clamp(1.2rem, 2vw, 1.8rem) "Consolas", monospace; font-variant-numeric: tabular-nums; margin-top: .5rem; }
+.readout small { display: block; font: .7rem "Consolas", monospace; color: #526774; margin-top: .3rem; }
 .table-scroll { overflow-x: auto; max-width: 100%; }
 table { border-collapse: collapse; width: 100%; text-align: left; font-size: .76rem; font-variant-numeric: tabular-nums; }
 th, td { padding: .75rem .6rem; border-bottom: 1px solid #d4dbd2; white-space: nowrap; }
@@ -64,19 +69,18 @@ td { font-family: "Consolas", "Courier New", monospace; }
 figure { margin: 1.5rem 0; border-top: 1px solid var(--line); padding-top: .1rem; }
 figcaption h3 { margin-bottom: .3rem; }
 figcaption p { margin-top: 0; }
-svg { width: 100%; display: block; max-height: 900px; }
-svg text { font: 11px "Consolas", "Courier New", monospace; fill: #3c574f; }
-.pipe-fill { fill: var(--ink); }
-.annulus-fill { fill: var(--rust); }
-.gridline { stroke: #c5d0c4; stroke-width: 1; }
-.hydro-line { stroke: #3f7269; stroke-width: 3; stroke-dasharray: 7 5; fill: none; }
-.pressure-line { stroke: var(--rust); stroke-width: 2; fill: none; }
-.legend { display: flex; flex-wrap: wrap; gap: 1.2rem; font-size: .75rem; }
-.legend span::before { content: ''; display: inline-block; width: 18px; height: 6px; vertical-align: middle; margin-right: .4rem; background: var(--ink); }
-.legend .annulus-key::before { background: var(--rust); }
-.legend .hydro-key::before { background: repeating-linear-gradient(90deg, #3f7269 0 5px, transparent 5px 8px); }
+.chart { width: 100%; min-width: 0; margin-top: 1rem; font: .75rem "Consolas", monospace; }
+.chart svg text { fill: #405665; font: 11px "Consolas", monospace; }
+.provenance { border-left: 3px solid var(--ink); background: #edf0ed; padding: 1rem; margin-bottom: 1.5rem; font-size: .78rem; overflow-wrap: anywhere; }
+.provenance strong { display: block; font-family: "Consolas", monospace; font-weight: 700; }
+.provenance p { margin: .5rem 0; line-height: 1.6; }
+.provenance li { margin: .6rem 0; }
+.provenance ul { list-style: square; padding-left: 1.2rem; }
+.provenance.unknown { border-color: var(--rust); background: #f4e9d6; }
 details { font-size: .8rem; margin-top: 1rem; }
-summary { cursor: pointer; padding: .5rem 0; }
+summary { display: list-item; cursor: pointer; padding: .5rem 0; }
+figcaption .eyebrow { color: var(--rust); margin-top: 1.5rem; }
+figcaption h3 { font-family: Georgia, serif; font-size: 1.3rem; font-weight: 400; margin-top: .4rem; }
 .result-note { border-top: 1px solid var(--line); padding-top: 1rem; margin-top: 1.8rem; }
 footer { font-size: .8rem; color: #496057; line-height: 1.7; max-width: 1000px; padding: 1.8rem 0 0; }
 footer strong { color: var(--ink); }
