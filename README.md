@@ -22,7 +22,7 @@ From the repository root:
 docker compose up --build
 ```
 
-Open **http://127.0.0.1:5173**. Stop the foreground app with Ctrl+C.
+Open `http://127.0.0.1:5173`. Stop the foreground app with Ctrl+C.
 
 ### Hydraulics & saved cases
 
@@ -108,6 +108,9 @@ accuracy; small contributions may display as zero. See the
   boundary and capability acceptance criteria.
 - [Technical requirements](docs/architecture/trd.md): normative architecture,
   engineering contracts, storage, security and verification requirements.
+- [EDR-001: drilling hydraulics](research/hydraulics/001-drilling-hydraulics-boundary.md)
+  and [EDR-002: torque and drag](research/hydraulics/002-torque-drag-study-boundary.md):
+  drilling-engineering models, worked examples and explicit applicability limits.
 
 The UI presents inputs and returned snapshots; authoritative engineering
 calculations remain in the backend domain. FastAPI invokes application use cases
