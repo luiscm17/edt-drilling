@@ -8,7 +8,7 @@ S2. "claro que te autorizo pero ahora mismo la limitante que tenemos es que tene
 S3. Assumption (proposal for review, not a user requirement): first reference slice compares nozzle velocity because its installed-help equation and a public OpenOil API already exist. Expand to hydraulic pressure/ECD only after identifying equivalent WellPlan input options and reproducible outputs. No blanket equivalence claim about all WellPlan capabilities.
 
 ## Tasks
-T0 [S1-S2] Create fresh branch and draft this ODD with evidence boundary and review gates; route: inline; done (draft only); commit: pending.
+T0 [S1-S2] Create fresh branch and draft this ODD with evidence boundary and review gates; route: inline; done (draft only; git diff --cached --check passed); commit: 78820e4.
 T1 [S1-S3] Confirm a disposable WellPlan workspace/profile and actual file/database write targets before launch; select synthetic, non-operational input case and record configuration, units and installed version; route: parent research; blocked (awaiting user review and WellPlan readiness; no runtime activity now); commit: none.
 T2 [S2-S3] Capture a bounded reference run for nozzle velocity with inputs, configuration, WellPlan outputs, units, timestamps and installed-artifact identity; use REA for available passive/static corroboration, not a replacement for observed result; route: scoped investigation; pending after T1; commit: none.
 T3 [S2-S3] Compare recorded WellPlan output with `POST /api/nozzle-velocity/calculate` via isolated public API state; specify tolerance from output precision before judging; include an alternate input and rejection/boundary case only if WellPlan supports them; route: test-first for any fix; pending after T2; commit: none.
