@@ -278,6 +278,89 @@ Tests use fresh system temporary databases, observe stored data through the
 public HTTP routes, and check exact errors, silence, unchanged snapshots/IDs
 and preservation of hydraulic validation with the new request shape.
 
+### Calculate-only nozzle velocity
+
+`POST /api/nozzle-velocity/calculate` is an independent calculation, not an
+addition to hydraulic V1/V2 snapshots or torque/drag. It accepts only positive
+finite JSON numbers, including integers, with no strings, booleans, null,
+missing or extra fields. Both fields are required. The total area is the sum
+of all nozzle flow areas, **not** a diameter or an individual nozzle area.
+
+Request (flow in m³/s and total nozzle flow area in m²):
+
+```json
+{"flow_m3_s": 0.02, "total_nozzle_area_m2": 0.0004}
+```
+
+200 response (velocity in m/s, without an envelope):
+
+```json
+{"velocity_m_s": 50.01755001755002}
+```
+
+The pure Python function `wellplan_hydraulics.nozzle_velocity.calculate(flow_m3_s,
+total_nozzle_area_m2)` implements the literal documented API-unit equation
+with exact conversions at the SI boundary:
+
+```text
+Q_gpm = flow_m3_s * 60 / 0.003785411784
+A_in2 = total_nozzle_area_m2 / 0.0254²
+v_ft_s = 0.95 * Q_gpm / (2.96 * A_in2)
+velocity_m_s = v_ft_s * 0.3048
+```
+
+Last floating-point digits can vary; results are not rounded by the API.
+Doubling flow doubles velocity; doubling total area halves velocity. HTTP shape,
+type and positivity errors, malformed JSON and nonfinite inputs return exactly
+422 `{"detail":"invalid request body"}`. Positive finite inputs producing
+nonpositive or nonfinite floating-point results (including conversion overflow)
+return exactly
+422 `{"detail":"calculation outside finite numerical range"}`. The Python
+function rejects invalid inputs with `ValueError`. Neither success nor rejection
+prints, saves a case, changes a hydraulic snapshot, or consumes a case ID.
+The existing app still initializes its hydraulic database at startup; the new
+handler itself has no storage dependency. There is no nozzle save route,
+migration, provenance envelope or alteration of V1/V2 or torque/drag contracts.
+Request and response schemas are available in `/openapi.json` and `/docs`.
+
+**Formula provenance and unit caveat:** the installed, read-only WellPlan help
+at `C:\Landmark\EDT\WellPlan\webhelp\Topics\c_plot_noz_vel_calcs.html`
+("Nozzle Velocity Calculation", help metadata version 5000.11.0) documents
+`v_n = c_d * Q / (2.96 * A_bit)` with velocity ft/s, circulation US gpm,
+total bit area in² and `c_d = 0.95`. This independent implementation retains
+both literal constants, 0.95 and 2.96. Exact conversions use 1 US gallon =
+0.003785411784 m³, 1 inch = 0.0254 m, 1 foot = 0.3048 m and 60 seconds/minute.
+Exact unit conversion alone implies a denominator of approximately 3.116883117,
+not 2.96; the latter must not be silently replaced by the coherent-SI identity
+`0.95 * Q_m3_s / A_m2`. The literal documented equation is about 5.30% higher
+than that identity. The meaning/precision of the documented 2.96 approximation
+has not been established by an independent runtime oracle; retaining it is a
+documentation-fidelity choice, not an accuracy certification or calibration.
+For an independent hand check, 296 US gpm through 1 in² gives exactly
+`0.95 * 296 / 2.96 = 95 ft/s`, hence `95 * 0.3048 = 28.956 m/s`.
+There is **no numerical parity claim about executed WellPlan**. Documentation
+establishes an equation, not observed WellPlan native/runtime output. No
+proprietary implementation or help source is copied into this project.
+
+This is velocity at the entered flow and area with a fixed coefficient, not a
+maximum achievable velocity, nozzle optimizer, pump/pressure-loss calculation
+or validated operating limit. It excludes coupled hydraulics, nozzle geometry
+loss modeling, erosion and transient/multiphase effects. Existing hydraulics
+still excludes bit/nozzle pressure loss. Floating-point digits are not accuracy
+certification; round displays appropriately and obtain independent engineering
+validation before operational use.
+
+Rebuild because tests are copied into the image, then run focused tests:
+
+```bash
+docker compose build backend
+docker compose run --rm --no-deps backend uv run --frozen python -m unittest discover -s tests -p 'test_nozzle_velocity.py' -v
+```
+
+Tests check independent numerical values and dynamic scaling, strict rejection,
+exact public HTTP results/errors, handler silence, unchanged V1/V2 snapshots and
+ID allocation, and sibling routes' rejection of the new input shape.
+
 ### API and full-suite verification (Docker only)
 
 When the backend image is already provisioned, test the current checkout rather

@@ -7,14 +7,25 @@ from typing import Literal
 from fastapi import FastAPI, HTTPException
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 from wellplan_hydraulics.application import (
     CaseInput, HydraulicsApplication, InvalidCaseId, MissingCase, UnsupportedInput,
 )
 from wellplan_hydraulics.physics import Section, calculate
 from wellplan_hydraulics.storage import CaseStore
-from wellplan_hydraulics import torque_drag
+from wellplan_hydraulics import nozzle_velocity, torque_drag
+
+
+class NozzleVelocityInput(BaseModel):
+    model_config = ConfigDict(extra='forbid', strict=True, allow_inf_nan=False)
+    flow_m3_s: float = Field(gt=0)
+    total_nozzle_area_m2: float = Field(gt=0)
+
+
+class NozzleVelocityResult(BaseModel):
+    model_config = ConfigDict(extra='forbid', strict=True, allow_inf_nan=False)
+    velocity_m_s: float = Field(gt=0)
 
 
 class SectionInput(BaseModel):
@@ -114,6 +125,15 @@ def create_app(db_path=None):
     @app.exception_handler(MissingCase)
     async def missing_case(request, error):
         return JSONResponse(status_code=404, content={'detail': str(error)})
+
+    @app.post('/api/nozzle-velocity/calculate', response_model=NozzleVelocityResult)
+    def calculate_nozzle_velocity(inputs: NozzleVelocityInput):
+        try:
+            velocity = nozzle_velocity.calculate(
+                inputs.flow_m3_s, inputs.total_nozzle_area_m2)
+        except ValueError as error:
+            raise HTTPException(status_code=422, detail=str(error)) from None
+        return {'velocity_m_s': velocity}
 
     @app.post('/api/torque-drag/calculate', response_model=TorqueDragResult)
     def calculate_torque_drag(inputs: TorqueDragInput):

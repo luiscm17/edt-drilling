@@ -20,15 +20,25 @@ missing, and the Windows Java probe fails. This is a provider limitation,
 not evidence that the formula does not exist. Managed metadata inspection
 is static and never runs the calculation.
 
+## Documented equations are not runtime parity
+
+The installed `WellPlan/webhelp/Topics/c_plot_noz_vel_calcs.html` explicitly
+states `v_n = c_d Q / (2.96 A_bit)` in API units (velocity ft/s, circulation
+gpm, total nozzle area in², `c_d = 0.95`). Adjacent shipped topics
+`c_bit_press_loss_calc.html` and `c_ecd_calc.html` contain separate bit-loss
+and ECD equations. These are vendor **documentation observations**, not
+REA-recovered native bodies or measured output. They support a scoped,
+independently coded dynamic nozzle-velocity calculation with explicit units,
+but cannot establish which runtime options invoke them or claim full parity.
+
 ## What parity would require
 
 A controlled reference suite must record WellPlan version/configuration,
 units, input case, full output, failure behavior and numerical tolerances.
 At least distinct laminar/turbulent and unsupported-boundary cases would
 need comparison against independent OpenOil calculations; no such observed
-reference outputs exist in this investigation. Therefore **no new vendor
-formula, numerical parity fixture or field-use claim is justified**. The
-existing OpenOil hydraulic and torque/drag computations remain dynamic,
-independently specified, and explicitly limited by their own engineering
-boundaries. Further numerical reconstruction is pending a usable analysis
-provider or controlled reference cases; avoid hardcoded example outputs.
+reference outputs exist in this investigation. Therefore **no runtime parity
+fixture or field-use claim is justified**. OpenOil's calculations remain
+dynamic, independently specified and bounded by documented assumptions.
+Full numerical reconstruction is pending a usable native-analysis provider
+or controlled reference cases; avoid hardcoded example outputs.
