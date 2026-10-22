@@ -83,6 +83,31 @@ formulas, section additivity, hydrostatic pressure/ECD, geometry, properties,
 regime endpoints and numerical-range rejection, including rejection silence and
 unchanged inputs. They establish behavior of this model, not real-well accuracy.
 
+## Application and adapter boundaries
+
+`physics.py` remains the pure domain model and retains its existing imports.
+`application.py` owns calculate/save/list/load orchestration and accepts a
+`CaseRepository` protocol from `ports.py`; neither module depends on FastAPI,
+SQLite or filesystem APIs. `storage.py` supplies the existing structural port
+implementation, `CaseStore`. `create_app` in `api.py` is the composition edge:
+it selects the store, initializes it at startup and wires the application.
+HTTP handlers validate transport shape and translate application errors; they
+contain no persistence operations or engineering formulas.
+
+For non-HTTP callers, construct `CaseInput` with an ordered tuple of `Section`
+values and the three SI fluid/flow quantities, then pass it to
+`HydraulicsApplication(repository).calculate(inputs)` or `.save(inputs)`.
+Calculate returns a result dictionary without touching the port. Save validates
+and calculates before one atomic repository save. `.list()` and `.load(id)`
+return stored snapshots without recalculation. `UnsupportedInput`,
+`InvalidCaseId` and `MissingCase` distinguish application errors; infrastructure
+exceptions propagate rather than becoming input errors. The existing
+`CalculationInput.result()` helper remains available for compatibility.
+
+`calculate_versioned`, `save_versioned`, `list_versioned` and `load_versioned`
+expose the provenance-bearing contract described below. Existing application
+methods preserve their original result/record shapes.
+
 ## JSON API and saved cases
 
 The FastAPI app is `wellplan_hydraulics.api:app`; `create_app(db_path)` allows
@@ -126,13 +151,68 @@ OpenAPI and interactive API documentation are available at `/openapi.json` and
 GET does not recalculate them. Identical successful saves create distinct IDs.
 
 This small local prototype is append-only: no update/delete, names, authentication,
-pagination, schema migration, model-version tracking, or multi-user concurrency
-policy. Lists return all records; use only small trusted local datasets. SQLite
+pagination, or multi-user concurrency policy. Lists return all records; use only small trusted local datasets. SQLite
 transactions commit each new record atomically and close each connection.
 Filesystem/DB failures are server errors, not input-validation errors. Existing
 core applicability limits still apply; table/plot presentation belongs to the UI.
 
+### Versioned snapshots and compatibility
+
+V1 routes above keep their exact request/response/error contracts. V2 POST routes
+require a strict envelope: `{"input_schema_version":"1","input":{...}}`, where
+`input` is the same SI calculation input shown above. Other schema versions,
+extra fields (including client-supplied provenance), or malformed envelopes return
+422 `{"detail":"invalid request body"}`. Model selection is server-owned.
+
+| Route | Success JSON |
+| --- | --- |
+| `POST /api/v2/calculate` | 200: `{"input":{...},"result":{...},"provenance":{...}}`; no write |
+| `POST /api/v2/cases` | 201: the same snapshot plus a stable distinct `id` |
+| `GET /api/v2/cases` | 200: snapshots ordered by increasing ID |
+| `GET /api/v2/cases/{id}` | 200: stored snapshot |
+
+V2 uses the same engineering rejection messages, invalid-ID 422 and missing-case
+404 bodies as V1. Infrastructure failures remain 500 `Internal Server Error`,
+not input errors. Rejected requests neither change snapshots nor consume IDs.
+
+New saves through **either** version atomically retain provenance; V1 responses
+omit it. Provenance contains `model_id` =
+`openoil.hydraulics.newtonian-concentric-vertical`, `model_version` = `1.0.0`,
+`units` = `SI`, `input_schema_version` = `1`, `result_schema_version` = `1`
+(all version values are strings), `assumptions` (applicability, correlations and
+exclusions), and `created_at` (UTC ISO-8601 snapshot creation time). This is an independently defined OpenOil model identity, not an accuracy
+certification. Calculation timestamps are metadata, not part of deterministic
+engineering values.
+
+Startup performs an idempotent additive migration, adding nullable
+`provenance_json` to `cases`. Existing IDs and input/result JSON bytes are not
+rewritten; existing rows expose `provenance: null` in V2, meaning **unknown**,
+not inferred legacy model identity. The original three-column schema and migrated
+schema are both accepted at startup. Back up local databases before migration;
+no downgrade or concurrent-migration policy is offered for this local prototype.
+List/load never recalculate, including historical inputs unsupported today.
+To recalculate explicitly, submit the desired input to a calculate route; save
+again to retain a new distinct snapshot under the current model. No operation
+replaces the original result or backfills its provenance.
+
 ### API and full-suite verification (Docker only)
+
+When the backend image is already provisioned, test the current checkout rather
+than the image's copied tests with this read-only bind mount. The disposable
+container uses a `/tmp` tmpfs for test databases, with no network or host caches:
+
+```bash
+MSYS_NO_PATHCONV=1 docker run --rm --network none --read-only --tmpfs /tmp --mount "type=bind,source=D:/Documents/GitHub/edt-drilling/backend,target=/work,readonly" --workdir /work --env PYTHONPATH=/work/src --env PYTHONDONTWRITEBYTECODE=1 edt-drilling-backend:latest /opt/venv/bin/python -m unittest discover -s tests -p 'test_*.py' -v
+```
+
+Use `-p test_application.py`, `-p test_api.py`, or `-p test_versioned_cases.py`
+for focused checks. Versioned tests start with an isolated original three-column
+SQLite fixture and check restart, migration idempotence, unchanged JSON bytes/IDs,
+unknown historical provenance, no implicit calculation, and rejection atomicity. Application
+tests use a fake port to check write ordering, ID allocation, rejection silence,
+snapshot semantics and propagation of infrastructure failures. API tests preserve
+the existing routes, JSON, validation messages, persistence and helper interface.
+
 
 This command provisions uv and locked dependencies only inside the disposable
 container. Its workspace is read-only; environments, caches, and isolated test

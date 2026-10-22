@@ -27,4 +27,14 @@ export interface Result {
   bottomhole_annular_pa: number;
   ecd_kg_m3: number;
 }
-export interface SavedCase { id: number; input: Inputs; result: Result }
+export interface Provenance {
+  model_id: string;
+  model_version: string;
+  units: 'SI';
+  input_schema_version: string;
+  result_schema_version: string;
+  assumptions: string[];
+  created_at: string;
+}
+export interface Snapshot { input: Inputs; result: Result; provenance: Provenance | null }
+export interface SavedCase extends Snapshot { id: number }
