@@ -41,13 +41,38 @@ function api(records: (Omit<typeof record, 'provenance'> & { provenance: typeof 
 }
 
 describe('OpenOil public V2 workbench', () => {
+  it('switches exclusive study views by keyboard without requests or losing hydraulic state', async () => {
+    const fetcher = api([record]); const user = userEvent.setup(); render(<App />);
+    await user.click(await screen.findByRole('button', { name: /Load case 1/ }));
+    await screen.findByRole('table', { name: 'Section pressure losses' });
+    const navigation = screen.getByRole('navigation', { name: 'Workbench studies' });
+    const hydraulics = within(navigation).getByRole('button', { name: /Hydraulics/ });
+    const torque = within(navigation).getByRole('button', { name: /Torque & drag/ });
+    expect(hydraulics).toHaveAttribute('aria-current', 'page');
+    expect(screen.queryByRole('region', { name: 'Torque & drag study' })).not.toBeInTheDocument();
+    torque.focus(); await user.keyboard('{Enter}');
+    expect(torque).toHaveFocus();
+    expect(torque).toHaveAttribute('aria-current', 'page');
+    expect(hydraulics).not.toHaveAttribute('aria-current');
+    expect(screen.getByRole('region', { name: 'Torque & drag study' })).toBeVisible();
+    expect(screen.queryByRole('table', { name: 'Section pressure losses' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Save case' })).not.toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Skip to inputs' })).toHaveAttribute('href', '#torque-drag');
+    await user.click(hydraulics);
+    expect(screen.getByRole('table', { name: 'Section pressure losses' })).toHaveTextContent('1,000');
+    expect(screen.getByLabelText('Density (kg/m³)')).toHaveValue(1000);
+    expect(screen.getByRole('button', { name: /Load case 1/ })).toBeVisible();
+    expect(fetcher.mock.calls).toEqual([['/api/v2/cases'], ['/api/v2/cases/1']]);
+  });
   it('retains hydraulic snapshots and ledger while the independent study is edited', async () => {
     const fetcher = api([record]); const user = userEvent.setup(); render(<App />);
     await user.click(await screen.findByRole('button', { name: /Load case 1/ }));
     await screen.findByRole('table', { name: 'Section pressure losses' });
+    await user.click(screen.getByRole('button', { name: /Torque & drag study/ }));
     const study = screen.getByRole('region', { name: 'Torque & drag study' });
     await user.clear(within(study).getByLabelText('Study density (kg/m³)'));
     await user.type(within(study).getByLabelText('Study density (kg/m³)'), '900');
+    await user.click(screen.getByRole('button', { name: /Hydraulics & saved cases/ }));
     expect(screen.getByLabelText('Density (kg/m³)')).toHaveValue(1000);
     expect(screen.getByRole('table', { name: 'Section pressure losses' })).toHaveTextContent('1,000');
     expect(screen.getByRole('button', { name: /Load case 1/ })).toBeVisible();
@@ -56,6 +81,7 @@ describe('OpenOil public V2 workbench', () => {
     expect(fetcher).toHaveBeenCalledWith('/api/v2/cases', expect.objectContaining({
       method: 'POST', body: JSON.stringify({ input_schema_version: '1', input }),
     }));
+    await user.click(screen.getByRole('button', { name: /Torque & drag study/ }));
     expect(within(study).getByLabelText('Study density (kg/m³)')).toHaveValue(900);
     expect(fetcher.mock.calls.some(([url]) => String(url).includes('torque-drag'))).toBe(false);
   });

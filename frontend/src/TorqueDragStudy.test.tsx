@@ -30,9 +30,9 @@ async function fill(user: ReturnType<typeof userEvent.setup>, label: string, val
 describe('calculate-only torque and drag study', () => {
   it('selects the study by keyboard, sends ordered raw SI inputs, audits contributions and never saves', async () => {
     const { user, fetcher } = setup();
-    const link = screen.getByRole('link', { name: 'Torque & drag study' });
-    link.focus(); await user.keyboard('{Enter}'); expect(link).toHaveFocus();
-    expect(link).toHaveAttribute('href', '#torque-drag');
+    const studyButton = screen.getByRole('button', { name: /Torque & drag study/ });
+    studyButton.focus(); await user.keyboard('{Enter}'); expect(studyButton).toHaveFocus();
+    expect(studyButton).toHaveAttribute('aria-current', 'page');
     const panel = screen.getByRole('region', { name: 'Torque & drag study' });
     expect(within(panel).getByText(/no doglegs or buckling/i)).toBeVisible();
     expect(within(panel).getByText(/no field suitability or WellPlan parity/i)).toBeVisible();
@@ -74,7 +74,14 @@ describe('calculate-only torque and drag study', () => {
     expect(within(panel).getByRole('status')).toHaveTextContent('Study complete. Not saved; hydraulic ledger unchanged.');
     expect(within(panel).queryByRole('button', { name: /save/i })).not.toBeInTheDocument();
     expect(fetcher.mock.calls.filter(([url]) => url !== '/api/v2/cases')).toHaveLength(1);
+    const callsBeforeNavigation = fetcher.mock.calls.length;
+    await user.click(screen.getByRole('button', { name: /Hydraulics & saved cases/ }));
     expect(screen.getByText(/No saved cases/)).toBeVisible();
+    expect(screen.queryByRole('table', { name: 'Torque and drag SI summary' })).not.toBeInTheDocument();
+    await user.click(studyButton);
+    expect(screen.getByRole('table', { name: 'Torque and drag SI summary' })).toHaveTextContent('5,000');
+    expect(within(second).getByLabelText('Study length (m)')).toHaveValue(20);
+    expect(fetcher.mock.calls).toHaveLength(callsBeforeNavigation);
     await user.click(within(second).getByRole('button', { name: 'Remove study section 2' }));
     expect(within(panel).queryByRole('table')).not.toBeInTheDocument();
     expect(within(panel).getByRole('button', { name: 'Remove study section 1' })).toBeDisabled();
@@ -82,6 +89,7 @@ describe('calculate-only torque and drag study', () => {
 
   it('clears both result tables on edits and server, network or non-JSON failure, and permits retry', async () => {
     const { user, fetcher } = setup();
+    await user.click(screen.getByRole('button', { name: /Torque & drag study/ }));
     const calculate = () => user.click(screen.getByRole('button', { name: 'Calculate study' }));
     await calculate();
     await screen.findByRole('table', { name: 'Torque and drag SI summary' });
@@ -97,7 +105,9 @@ describe('calculate-only torque and drag study', () => {
       await calculate();
       expect(await screen.findByRole('alert')).toHaveTextContent(message);
       expect(screen.queryByRole('table')).not.toBeInTheDocument();
+      await user.click(screen.getByRole('button', { name: /Hydraulics & saved cases/ }));
       expect(screen.getByText(/No saved cases/)).toBeVisible();
+      await user.click(screen.getByRole('button', { name: /Torque & drag study/ }));
     }
     await calculate();
     await waitFor(() => expect(screen.queryByRole('alert')).not.toBeInTheDocument());

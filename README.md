@@ -24,6 +24,20 @@ docker compose up --build
 
 Open `http://127.0.0.1:5173`. Stop the foreground app with Ctrl+C.
 
+### Workbench navigation
+
+Select **Hydraulics & saved cases** or **Torque & drag study** in the study
+navigation to switch views, rather than scroll between panels. The active study
+is marked visually and for assistive technology. Use Tab to focus a study button
+and Enter or Space to select it; **Skip to inputs** targets the current study.
+On narrow screens the study selector sits above the workspace.
+
+Switching studies retains each study's inputs, results and errors without issuing
+calculation or save requests. Only the active study is visible and keyboard
+accessible. Selection and unsaved work are in-memory: reloading opens Hydraulics
+and resets temporary work. Use **Save case** to persist hydraulic snapshots;
+torque/drag studies cannot be saved. There is no realtime or websocket connection.
+
 ### Hydraulics & saved cases
 
 1. Edit sections in surface-to-bottom order. Lengths and diameters use **m**;
@@ -38,8 +52,9 @@ Open `http://127.0.0.1:5173`. Stop the foreground app with Ctrl+C.
 
 ### Torque & drag study (calculate only)
 
-Use the **Torque & drag study** navigation link (Tab then Enter works) to reach
-the separate panel; hydraulics and its case ledger remain available above it.
+Select **Torque & drag study** in the study navigation to open its independent
+view. Switch back to **Hydraulics & saved cases** to return to the retained
+hydraulic inputs, results and case ledger.
 
 1. Enter sections in surface-to-bottom order: measured length (**m**), pipe OD
    (**m**) and air weight (**N/m**). Add/remove sections without changing hydraulics.
@@ -58,8 +73,8 @@ clear its previous result. Domain rejections appear as an alert with backend det
 network and non-JSON errors also permit retry. See the exact
 [API contract](backend/README.md#calculate-only-torque-and-drag-study).
 
-Errors appear in an alert without displaying a false result. The navy/oxide/cream
-instrument panel uses Recharts for comparable friction bars and pressure traverses,
+Errors appear in an alert without displaying a false result. The slate-and-amber
+engineering workspace uses Recharts for comparable friction bars and pressure traverses,
 with Tailwind CSS v4 utilities and custom instrument styling. Every chart has a
 tabular equivalent; wide tables scroll on narrow screens. No external font service
 or decorative component library is required.
