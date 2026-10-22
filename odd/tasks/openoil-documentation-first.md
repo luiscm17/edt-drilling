@@ -15,7 +15,7 @@ T1 [S1-S3] Inspect PRD/TRD and classify requirements by product versus technical
 T2 [S1-S3] Use read-only REA inspection to inform the technical boundary; route: parent; done (managed metadata and native-boundary evidence only; vendor artifacts not executed).
 T3 [S1-S3] Add P6 product acceptance to `docs/product/prd.md` and add focused technical design to `docs/architecture/hydraulics-capability-design.md`; route: parent; done (documentation only; no application code or DB changes).
 T4 [S1-S3] Restore ODD task tracking here, validate document scope/evidence and links, mirror the corrected structure, and commit; route: parent; done (correction commit: 27de554; superseded by T5).
-T5 [S4] Rewrite the normative architecture document to remove implementation-state inventories, source paths, artifact identifiers, REA discussion and history; verify its normative scope and commit; route: parent; done (forbidden-reference and structure checks plus git diff --check passed; commit follows).
+T5 [S4] Rewrite the normative architecture document to remove implementation-state inventories, source paths, artifact identifiers, REA discussion and history; verify its normative scope and commit; route: parent; done (forbidden-reference and structure checks plus git diff --check passed; normative rewrite commit: 5b08997).
 
 ## Log
 
@@ -24,4 +24,5 @@ L2: The prior commit `8bd1506` put normative product/technical requirements in t
 L3: Read-only REA inspections were used for the two installed WellPlan assemblies. The binaries were not loaded or executed. Existing application code and databases were not changed; no application tests were run because the deliverable is documentation.
 L4: The user clarified that the normative architecture document must not describe code state or contain a work history, source/package inventory, DLL identifiers or REA evidence. The design was rewritten as implementation-independent requirements; this process correction is recorded here, not in the normative document.
 L5: Final scan confirmed the architecture document contains only scoped technical requirements and abstract architecture roles; no source/package paths, artifact identifiers, REA discussion, implementation inventory, history or code-state description. Structural checks and `git diff --check` passed; only documentation was changed.
+L6: Normative rewrite committed as `5b08997` on `feat/openoil-documentation-first`; worktree clean. No application code, tests, database changes or vendor execution.
 L4: Corrected the document boundary in commit 27de554: PRD P6 now expresses the product outcome; docs/architecture/hydraulics-capability-design.md holds the technical design; this ODD file tracks the methodology run and its evidence. Structural/reference checks and git diff --check passed. No application code, DB migration or vendor execution.
