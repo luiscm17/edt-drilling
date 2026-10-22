@@ -51,10 +51,10 @@ not an accuracy guarantee.
 
 ## Product and architecture
 
-- [Product requirements](docs/product/prd.md): users, scope, safety boundary and
-  capability acceptance gates; future capabilities are candidates, not commitments.
-- [Technical requirements](docs/architecture/trd.md): current source mapping,
-  contracts and incremental migration toward a hexagonal modular monolith.
+- [Product requirements](docs/product/prd.md): user outcomes, scope, safety
+  boundary and capability acceptance criteria.
+- [Technical requirements](docs/architecture/trd.md): normative architecture,
+  engineering contracts, storage, security and verification requirements.
 
 The backend separates pure physics from FastAPI and SQLite, but HTTP handlers
 still orchestrate calculations and directly access the concrete store. Explicit
