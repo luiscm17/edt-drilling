@@ -155,6 +155,15 @@ class ApiTests(unittest.TestCase):
         self.assert_response(self.client.get('/api/cases'), 200, [])
         self.assertEqual(self.client.post('/api/cases', json=INPUT).json()['id'], 1)
 
+    def test_v1_still_rejects_versioned_envelopes_without_saving(self):
+        first = self.client.post('/api/cases', json=INPUT).json()
+        body = {'input_schema_version': '1', 'input': INPUT}
+        for route in ['/api/calculate', '/api/cases']:
+            self.assert_response(self.client.post(route, json=body), 422,
+                                 {'detail': 'invalid request body'})
+            self.assert_response(self.client.get('/api/cases'), 200, [first])
+        self.assertEqual(self.client.post('/api/cases', json=INPUT).json()['id'], 2)
+
     def test_preserves_multisection_and_turbulent_core_behavior(self):
         for flow in [0.001, 0.03]:
             data = deepcopy(INPUT)

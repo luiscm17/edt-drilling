@@ -11,7 +11,8 @@ class CaseRepository(Protocol):
     reject nonfinite serialization and propagate infrastructure failures.
     """
 
-    def save(self, inputs: Snapshot, result: Snapshot) -> Snapshot: ...
+    def save(self, inputs: Snapshot, result: Snapshot,
+             provenance: Snapshot | None = None) -> Snapshot: ...
 
     def list(self) -> list[Snapshot]: ...
 

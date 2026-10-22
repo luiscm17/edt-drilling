@@ -25,9 +25,10 @@ class FakeRepository:
         self.calls = []
         self.next_id = 1
 
-    def save(self, inputs, result):
+    def save(self, inputs, result, provenance=None):
         self.calls.append('save')
-        record = deepcopy(dict(id=self.next_id, input=inputs, result=result))
+        record = deepcopy(dict(id=self.next_id, input=inputs, result=result,
+                               provenance=provenance))
         self.records.append(record)
         self.next_id += 1
         return deepcopy(record)
@@ -122,6 +123,27 @@ class ApplicationTests(unittest.TestCase):
             self.assertEqual(str(caught.exception), 'case not found')
         self.assertEqual(self.application.list(), [])
         self.assertEqual(self.application.save(inputs())['id'], 1)
+
+    def test_versioned_use_cases_retain_identity_and_unknown_legacy_origin(self):
+        calculated = self.application.calculate_versioned(inputs())
+        self.assertEqual(self.repository.calls, [])
+        self.assertEqual(calculated['input'], inputs().snapshot())
+        self.assertEqual(calculated['result'], self.application.calculate(inputs()))
+        self.assertEqual(calculated['provenance']['model_version'], '1.0.0')
+        saved = self.application.save_versioned(inputs())
+        self.assertEqual(saved, self.repository.records[0])
+        self.assertEqual(self.application.load_versioned(1), saved)
+        self.assertEqual(self.application.list_versioned(), [saved])
+        saved['provenance']['assumptions'].clear()
+        self.assertTrue(self.application.load_versioned(1)['provenance']['assumptions'])
+        self.repository.records[0] = dict(id=1, input={}, result={'legacy': 7})
+        self.assertEqual(self.application.load_versioned(1),
+                         dict(self.repository.records[0], provenance=None))
+        calls = deepcopy(self.repository.calls)
+        with self.assertRaises(UnsupportedInput):
+            self.application.save_versioned(inputs(density_kg_m3=0))
+        self.assertEqual(self.repository.calls, calls)
+        self.assertEqual(self.repository.next_id, 2)
 
     def test_repository_failures_are_not_engineering_errors(self):
         def fail(*args):
