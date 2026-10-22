@@ -41,13 +41,86 @@ function api(records: (Omit<typeof record, 'provenance'> & { provenance: typeof 
 }
 
 describe('OpenOil public V2 workbench', () => {
+  it('isolates nozzle edits and failures while retaining both existing studies, requests and ledger', async () => {
+    const fetcher = api([record]); const user = userEvent.setup(); render(<App />);
+    await user.click(await screen.findByRole('button', { name: /Load case 1/ }));
+    await screen.findByRole('table', { name: 'Section pressure losses' });
+    await user.click(screen.getByRole('button', { name: /Torque & drag study/ }));
+    await user.clear(screen.getByLabelText('Study density (kg/m³)'));
+    await user.type(screen.getByLabelText('Study density (kg/m³)'), '900');
+    const contribution = { submerged_weight_n_m: 100, axial_gravity_n: 1000, normal_force_n: 0,
+      axial_friction_n: 0, rotational_friction_n: 0, pickup_tension_n: 1000,
+      slackoff_tension_n: 1000, rotating_torque_nm: 0 };
+    fetcher.mockResolvedValueOnce(Response.json({ sections: [contribution],
+      pickup_tension_n: 1000, slackoff_tension_n: 1000, rotating_torque_nm: 0 }));
+    await user.click(screen.getByRole('button', { name: 'Calculate study' }));
+    await screen.findByRole('table', { name: 'Torque and drag SI summary' });
+    expect(fetcher).toHaveBeenLastCalledWith('/api/torque-drag/calculate', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({
+        sections: [{ length_m: 100, pipe_od_m: 0.1, air_weight_n_m: 300 }], inclination_deg: 30,
+        density_kg_m3: 900, axial_friction_coefficient: 0.2, rotational_friction_coefficient: 0.3,
+      }),
+    });
+    const nozzle = screen.getByRole('button', { name: /Nozzle velocity study/ });
+    nozzle.focus(); await user.keyboard('{Enter}');
+    expect(screen.queryByRole('table')).not.toBeInTheDocument();
+    await user.type(screen.getByLabelText('Nozzle flow (m³/s)'), '0.02');
+    await user.type(screen.getByLabelText('Total nozzle flow area (m²)'), '0.0004');
+    fetcher.mockResolvedValueOnce(Response.json({ detail: 'invalid request body' }, { status: 422 }));
+    await user.click(screen.getByRole('button', { name: 'Calculate nozzle velocity' }));
+    expect(await screen.findByRole('alert')).toHaveTextContent(/^invalid request body$/);
+    const calls = fetcher.mock.calls.length;
+    await user.click(screen.getByRole('button', { name: /Torque & drag study/ }));
+    expect(screen.getByLabelText('Study density (kg/m³)')).toHaveValue(900);
+    expect(screen.getByRole('table', { name: 'Torque and drag SI summary' })).toHaveTextContent('1,000');
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: /Hydraulics & saved cases/ }));
+    expect(screen.getByLabelText('Density (kg/m³)')).toHaveValue(1000);
+    expect(screen.getByRole('table', { name: 'Section pressure losses' })).toHaveTextContent('1,000');
+    expect(screen.getAllByRole('button', { name: /Load case/ })).toHaveLength(1);
+    expect(fetcher.mock.calls).toHaveLength(calls);
+    await user.click(screen.getByRole('button', { name: 'Calculate' }));
+    await screen.findByRole('table', { name: 'Section pressure losses' });
+    expect(fetcher).toHaveBeenLastCalledWith('/api/v2/calculate', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ input_schema_version: '1', input }),
+    });
+    await user.click(nozzle);
+    expect(screen.getByLabelText('Nozzle flow (m³/s)')).toHaveValue(0.02);
+    expect(screen.getByRole('alert')).toHaveTextContent(/^invalid request body$/);
+  });
+  it('switches exclusive study views by keyboard without requests or losing hydraulic state', async () => {
+    const fetcher = api([record]); const user = userEvent.setup(); render(<App />);
+    await user.click(await screen.findByRole('button', { name: /Load case 1/ }));
+    await screen.findByRole('table', { name: 'Section pressure losses' });
+    const navigation = screen.getByRole('navigation', { name: 'Workbench studies' });
+    const hydraulics = within(navigation).getByRole('button', { name: /Hydraulics/ });
+    const torque = within(navigation).getByRole('button', { name: /Torque & drag/ });
+    expect(hydraulics).toHaveAttribute('aria-current', 'page');
+    expect(screen.queryByRole('region', { name: 'Torque & drag study' })).not.toBeInTheDocument();
+    torque.focus(); await user.keyboard('{Enter}');
+    expect(torque).toHaveFocus();
+    expect(torque).toHaveAttribute('aria-current', 'page');
+    expect(hydraulics).not.toHaveAttribute('aria-current');
+    expect(screen.getByRole('region', { name: 'Torque & drag study' })).toBeVisible();
+    expect(screen.queryByRole('table', { name: 'Section pressure losses' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Save case' })).not.toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Skip to inputs' })).toHaveAttribute('href', '#torque-drag');
+    await user.click(hydraulics);
+    expect(screen.getByRole('table', { name: 'Section pressure losses' })).toHaveTextContent('1,000');
+    expect(screen.getByLabelText('Density (kg/m³)')).toHaveValue(1000);
+    expect(screen.getByRole('button', { name: /Load case 1/ })).toBeVisible();
+    expect(fetcher.mock.calls).toEqual([['/api/v2/cases'], ['/api/v2/cases/1']]);
+  });
   it('retains hydraulic snapshots and ledger while the independent study is edited', async () => {
     const fetcher = api([record]); const user = userEvent.setup(); render(<App />);
     await user.click(await screen.findByRole('button', { name: /Load case 1/ }));
     await screen.findByRole('table', { name: 'Section pressure losses' });
+    await user.click(screen.getByRole('button', { name: /Torque & drag study/ }));
     const study = screen.getByRole('region', { name: 'Torque & drag study' });
     await user.clear(within(study).getByLabelText('Study density (kg/m³)'));
     await user.type(within(study).getByLabelText('Study density (kg/m³)'), '900');
+    await user.click(screen.getByRole('button', { name: /Hydraulics & saved cases/ }));
     expect(screen.getByLabelText('Density (kg/m³)')).toHaveValue(1000);
     expect(screen.getByRole('table', { name: 'Section pressure losses' })).toHaveTextContent('1,000');
     expect(screen.getByRole('button', { name: /Load case 1/ })).toBeVisible();
@@ -56,6 +129,7 @@ describe('OpenOil public V2 workbench', () => {
     expect(fetcher).toHaveBeenCalledWith('/api/v2/cases', expect.objectContaining({
       method: 'POST', body: JSON.stringify({ input_schema_version: '1', input }),
     }));
+    await user.click(screen.getByRole('button', { name: /Torque & drag study/ }));
     expect(within(study).getByLabelText('Study density (kg/m³)')).toHaveValue(900);
     expect(fetcher.mock.calls.some(([url]) => String(url).includes('torque-drag'))).toBe(false);
   });
@@ -63,7 +137,8 @@ describe('OpenOil public V2 workbench', () => {
   it('edits SI inputs, posts only the strict V2 envelope, and clears stale results', async () => {
     const fetcher = api(); const user = userEvent.setup(); render(<App />);
     expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('OpenOil');
-    expect(screen.getByText(/not validated for field decisions/i)).toBeVisible();
+    expect(screen.getByRole('complementary', { name: 'Engineering scope warning' })).toHaveTextContent(/not validated for field decisions/i);
+    expect(screen.getByRole('complementary', { name: 'Engineering scope warning' })).toBeVisible();
     await waitFor(() => expect(screen.getByLabelText('Density (kg/m³)')).toBeEnabled());
     await user.clear(screen.getByLabelText('Density (kg/m³)'));
     await user.type(screen.getByLabelText('Density (kg/m³)'), '1100');

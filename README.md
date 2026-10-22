@@ -5,6 +5,8 @@ explicit assumptions, auditable section results and saved input/result snapshots
 The hydraulic capability models steady, incompressible, single-phase Newtonian
 flow in a concentric vertical well, with saved snapshots. A separate, non-persistent
 torque-and-drag study explores quasi-static contact in a straight inclined well.
+A third independent, calculate-only nozzle study evaluates a documented velocity
+equation from editable flow and total nozzle area.
 
 **Not validated for field decisions or safety-critical pressure limits.** Passing
 tests and display precision do not establish engineering accuracy. Independent
@@ -24,6 +26,20 @@ docker compose up --build
 
 Open `http://127.0.0.1:5173`. Stop the foreground app with Ctrl+C.
 
+### Workbench navigation
+
+Select **Hydraulics & saved cases**, **Torque & drag study** or
+**Nozzle velocity study** in the study navigation to switch views, rather than scroll between panels. The active study
+is marked visually and for assistive technology. Use Tab to focus a study button
+and Enter or Space to select it; **Skip to inputs** targets the current study.
+On narrow screens the study selector sits above the workspace.
+
+Switching studies retains each study's inputs, results and errors without issuing
+calculation or save requests. Only the active study is visible and keyboard
+accessible. Selection and unsaved work are in-memory: reloading opens Hydraulics
+and resets temporary work. Use **Save case** to persist hydraulic snapshots;
+torque/drag and nozzle studies cannot be saved. There is no realtime or websocket connection.
+
 ### Hydraulics & saved cases
 
 1. Edit sections in surface-to-bottom order. Lengths and diameters use **m**;
@@ -38,8 +54,9 @@ Open `http://127.0.0.1:5173`. Stop the foreground app with Ctrl+C.
 
 ### Torque & drag study (calculate only)
 
-Use the **Torque & drag study** navigation link (Tab then Enter works) to reach
-the separate panel; hydraulics and its case ledger remain available above it.
+Select **Torque & drag study** in the study navigation to open its independent
+view. Switch back to **Hydraulics & saved cases** to return to the retained
+hydraulic inputs, results and case ledger.
 
 1. Enter sections in surface-to-bottom order: measured length (**m**), pipe OD
    (**m**) and air weight (**N/m**). Add/remove sections without changing hydraulics.
@@ -58,8 +75,38 @@ clear its previous result. Domain rejections appear as an alert with backend det
 network and non-JSON errors also permit retry. See the exact
 [API contract](backend/README.md#calculate-only-torque-and-drag-study).
 
-Errors appear in an alert without displaying a false result. The navy/oxide/cream
-instrument panel uses Recharts for comparable friction bars and pressure traverses,
+### Nozzle velocity study (calculate only)
+
+1. Select **Nozzle velocity study** to open its independent view.
+2. Enter positive finite flow (**m³/s**) and total nozzle flow area (**m²**).
+   Area means the sum of all nozzle flow areas, not a diameter or one nozzle area.
+3. Select **Calculate nozzle velocity** to display the API's returned velocity
+   in **m/s**. No preloaded result or browser-side engineering calculation is used.
+
+The view sends raw numeric `{"flow_m3_s":...,"total_nozzle_area_m2":...}` to
+`POST /api/nozzle-velocity/calculate` and reads `{"velocity_m_s":...}` without a
+V2 envelope. Edits, invalid inputs, new requests and failures clear previous
+results. Errors are announced as alerts; status reports progress and completion.
+Retry after correction. Navigation retains temporary inputs/results/errors and
+never changes either other study or the hydraulic case ledger. There is no save
+action, case ID or provenance snapshot.
+
+**Formula scope:** the backend evaluates the installed help's literal
+`v (ft/s) = 0.95 × Q (US gpm) / (2.96 × A (in²))`, converting SI inputs and
+returning SI velocity. The coefficient is fixed at **0.95**. Retaining **2.96** is
+a documentation-fidelity choice: exact unit conversion implies approximately
+3.116883117, and the documented equation is about 5.30% higher than coherent-SI
+`0.95 × Q / A`. The approximation's meaning/precision is unverified. This is
+**not executed WellPlan numerical parity**, an optimizer, a maximum achievable
+velocity, a pressure-loss prediction or a validated operating limit. It excludes
+coupled hydraulics, geometry loss modeling, erosion and transient/multiphase
+effects; hydraulics still excludes nozzle pressure loss. Four-decimal display
+rounding is not accuracy and very small values may display as zero. Independently
+validate before engineering use. See the [API formula, conversions and
+caveats](backend/README.md#calculate-only-nozzle-velocity).
+
+Errors appear in an alert without displaying a false result. The slate-and-amber
+engineering workspace uses Recharts for comparable friction bars and pressure traverses,
 with Tailwind CSS v4 utilities and custom instrument styling. Every chart has a
 tabular equivalent; wide tables scroll on narrow screens. No external font service
 or decorative component library is required.
