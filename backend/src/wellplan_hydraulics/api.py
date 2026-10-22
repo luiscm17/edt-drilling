@@ -1,6 +1,5 @@
 """Local JSON API for the independent simplified hydraulics model."""
 from contextlib import asynccontextmanager
-from dataclasses import asdict
 import os
 
 from fastapi import FastAPI, HTTPException
@@ -8,6 +7,9 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, ConfigDict
 
+from wellplan_hydraulics.application import (
+    CaseInput, HydraulicsApplication, InvalidCaseId, MissingCase, UnsupportedInput,
+)
 from wellplan_hydraulics.physics import Section, calculate
 from wellplan_hydraulics.storage import CaseStore
 
@@ -27,12 +29,16 @@ class CalculationInput(BaseModel):
     viscosity_pa_s: float
     flow_m3_s: float
 
+    def to_case(self):
+        return CaseInput(
+            tuple(Section(**section.model_dump()) for section in self.sections),
+            self.density_kg_m3, self.viscosity_pa_s, self.flow_m3_s)
+
     def result(self):
+        # Preserve the existing Python helper as well as the HTTP contract.
         try:
-            return asdict(calculate(
-                [Section(**section.model_dump()) for section in self.sections],
-                self.density_kg_m3, self.viscosity_pa_s, self.flow_m3_s))
-        except ValueError as error:
+            return HydraulicsApplication.calculate(self.to_case())
+        except UnsupportedInput as error:
             raise HTTPException(status_code=422, detail=str(error)) from None
 
 
@@ -40,6 +46,7 @@ def create_app(db_path=None):
     """Create an app backed by a file; schema initialization occurs at startup."""
     store = CaseStore(db_path if db_path is not None
                       else os.environ.get('WELLPLAN_DB_PATH', 'cases.sqlite3'))
+    service = HydraulicsApplication(store)
 
     @asynccontextmanager
     async def lifespan(app):
@@ -55,27 +62,30 @@ def create_app(db_path=None):
                   else 'invalid request body')
         return JSONResponse(status_code=422, content={'detail': detail})
 
+    @app.exception_handler(UnsupportedInput)
+    @app.exception_handler(InvalidCaseId)
+    async def invalid_case(request, error):
+        return JSONResponse(status_code=422, content={'detail': str(error)})
+
+    @app.exception_handler(MissingCase)
+    async def missing_case(request, error):
+        return JSONResponse(status_code=404, content={'detail': str(error)})
+
     @app.post('/api/calculate')
     def calculate_case(inputs: CalculationInput):
-        return inputs.result()
+        return service.calculate(inputs.to_case())
 
     @app.post('/api/cases', status_code=201)
     def save_case(inputs: CalculationInput):
-        result = inputs.result()  # Reject before any storage operation or ID allocation.
-        return store.save(inputs.model_dump(), result)
+        return service.save(inputs.to_case())
 
     @app.get('/api/cases')
     def list_cases():
-        return store.list()
+        return service.list()
 
     @app.get('/api/cases/{case_id}')
     def get_case(case_id: int):
-        if not 1 <= case_id <= 9223372036854775807:
-            raise HTTPException(status_code=422, detail='invalid case id')
-        record = store.get(case_id)
-        if record is None:
-            raise HTTPException(status_code=404, detail='case not found')
-        return record
+        return service.load(case_id)
 
     return app
 

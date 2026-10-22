@@ -6,9 +6,11 @@ import io
 from pathlib import Path
 from tempfile import TemporaryDirectory
 import unittest
+from unittest.mock import patch
 
+from fastapi import HTTPException
 from fastapi.testclient import TestClient
-from wellplan_hydraulics.api import create_app
+from wellplan_hydraulics.api import CalculationInput, create_app
 from wellplan_hydraulics.physics import Section, calculate
 
 
@@ -109,6 +111,40 @@ class ApiTests(unittest.TestCase):
                                      422, {'detail': 'invalid request body'})
                 self.assert_response(self.client.get('/api/cases'), 200, [record])
         self.assertEqual(self.client.post('/api/cases', json=INPUT).json()['id'], 2)
+
+    def test_load_and_list_do_not_recalculate_saved_snapshots(self):
+        record = self.client.post('/api/cases', json=INPUT).json()
+        with patch('wellplan_hydraulics.application.calculate',
+                   side_effect=AssertionError('must not recalculate')):
+            self.assert_response(self.client.get('/api/cases/1'), 200, record)
+            self.assert_response(self.client.get('/api/cases'), 200, [record])
+
+    def test_existing_input_result_helper_is_preserved(self):
+        data = CalculationInput(**INPUT)
+        expected = expected_result(INPUT)
+        expected['sections'] = tuple(expected['sections'])
+        self.assertEqual(data.result(), expected)
+        with self.assertRaises(HTTPException) as caught:
+            CalculationInput(**dict(INPUT, density_kg_m3=0)).result()
+        self.assertEqual(caught.exception.status_code, 422)
+        self.assertEqual(caught.exception.detail,
+                         'density_kg_m3 must be a positive finite number')
+
+    def test_repository_errors_remain_server_errors_not_input_errors(self):
+        with TestClient(create_app(self.path), raise_server_exceptions=False) as client:
+            for method, verb, route, kwargs in [
+                ('save', 'post', '/api/cases', {'json': INPUT}),
+                ('list', 'get', '/api/cases', {}),
+                ('get', 'get', '/api/cases/1', {}),
+            ]:
+                with self.subTest(method=method):
+                    with patch('wellplan_hydraulics.storage.CaseStore.' + method,
+                               side_effect=ValueError('private infrastructure detail')):
+                        response = getattr(client, verb)(route, **kwargs)
+                    self.assertEqual(response.status_code, 500)
+                    self.assertEqual(response.text, 'Internal Server Error')
+        self.assert_response(self.client.get('/api/cases'), 200, [])
+        self.assertEqual(self.client.post('/api/cases', json=INPUT).json()['id'], 1)
 
     def test_missing_and_invalid_case_id_are_stable(self):
         self.assert_response(self.client.get('/api/cases/1'), 404,

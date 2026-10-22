@@ -83,6 +83,31 @@ formulas, section additivity, hydrostatic pressure/ECD, geometry, properties,
 regime endpoints and numerical-range rejection, including rejection silence and
 unchanged inputs. They establish behavior of this model, not real-well accuracy.
 
+## Application and adapter boundaries
+
+`physics.py` remains the pure domain model and retains its existing imports.
+`application.py` owns calculate/save/list/load orchestration and accepts a
+`CaseRepository` protocol from `ports.py`; neither module depends on FastAPI,
+SQLite or filesystem APIs. `storage.py` supplies the existing structural port
+implementation, `CaseStore`. `create_app` in `api.py` is the composition edge:
+it selects the store, initializes it at startup and wires the application.
+HTTP handlers validate transport shape and translate application errors; they
+contain no persistence operations or engineering formulas.
+
+For non-HTTP callers, construct `CaseInput` with an ordered tuple of `Section`
+values and the three SI fluid/flow quantities, then pass it to
+`HydraulicsApplication(repository).calculate(inputs)` or `.save(inputs)`.
+Calculate returns a result dictionary without touching the port. Save validates
+and calculates before one atomic repository save. `.list()` and `.load(id)`
+return stored snapshots without recalculation. `UnsupportedInput`,
+`InvalidCaseId` and `MissingCase` distinguish application errors; infrastructure
+exceptions propagate rather than becoming input errors. The existing
+`CalculationInput.result()` helper remains available for compatibility.
+
+This extraction does not add model/provenance fields, alter stored JSON or
+migrate the database. Missing historical provenance remains unknown. It is a
+bounded architecture step, not completion of all PRD/TRD requirements.
+
 ## JSON API and saved cases
 
 The FastAPI app is `wellplan_hydraulics.api:app`; `create_app(db_path)` allows
@@ -133,6 +158,20 @@ Filesystem/DB failures are server errors, not input-validation errors. Existing
 core applicability limits still apply; table/plot presentation belongs to the UI.
 
 ### API and full-suite verification (Docker only)
+
+When the backend image is already provisioned, test the current checkout rather
+than the image's copied tests with this read-only bind mount. The disposable
+container uses a `/tmp` tmpfs for test databases, with no network or host caches:
+
+```bash
+MSYS_NO_PATHCONV=1 docker run --rm --network none --read-only --tmpfs /tmp --mount "type=bind,source=D:/Documents/GitHub/edt-drilling/backend,target=/work,readonly" --workdir /work --env PYTHONPATH=/work/src --env PYTHONDONTWRITEBYTECODE=1 edt-drilling-backend:latest /opt/venv/bin/python -m unittest discover -s tests -p 'test_*.py' -v
+```
+
+Use `-p test_application.py` or `-p test_api.py` for focused checks. Application
+tests use a fake port to check write ordering, ID allocation, rejection silence,
+snapshot semantics and propagation of infrastructure failures. API tests preserve
+the existing routes, JSON, validation messages, persistence and helper interface.
+
 
 This command provisions uv and locked dependencies only inside the disposable
 container. Its workspace is read-only; environments, caches, and isolated test
