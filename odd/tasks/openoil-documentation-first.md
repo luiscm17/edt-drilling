@@ -13,10 +13,11 @@ S3 (corrective instruction, verbatim): "exacto, incluso quizas esta doc q hicist
 T1 [S1-S3] Inspect PRD/TRD and classify requirements by product versus technical architecture; route: parent; done.
 T2 [S1-S3] Use read-only REA inspection to inform the technical boundary; route: parent; done (managed metadata and native-boundary evidence only; vendor artifacts not executed).
 T3 [S1-S3] Add P6 product acceptance to `docs/product/prd.md` and add focused technical design to `docs/architecture/hydraulics-capability-design.md`; route: parent; done (documentation only; no application code or DB changes).
-T4 [S1-S3] Restore ODD task tracking here, validate document scope/evidence and links, mirror the corrected structure, and commit; route: parent; done (structure, source paths and REA IDs checked; commit follows).
+T4 [S1-S3] Restore ODD task tracking here, validate document scope/evidence and links, mirror the corrected structure, and commit; route: parent; done (structure, source paths and REA IDs checked; correction commit: 27de554).
 
 ## Log
 
 L1 (initial ODD authorization, verbatim): ok, realiza el odd, recuerda q esa doc es de caracter normativo, no es un hictorial o bitacora, se entiende? dale imagino q al ser documental no ejecutaras codigo, al contrario investigaras con rea para diseno de implementacion y arquitectura. dale
 L2: The prior commit `8bd1506` put normative product/technical requirements in this ODD task file. This conflated ODD as an implementation methodology with the normative documentation deliverable. The user clarified the distinction; that document was split into product requirements and a technical design under `docs/`, and this file was restored to an ODD workflow record.
 L3: Read-only REA inspections were used for the two installed WellPlan assemblies. The binaries were not loaded or executed. Existing application code and databases were not changed; no application tests were run because the deliverable is documentation.
+L4: Corrected the document boundary in commit 27de554: PRD P6 now expresses the product outcome; docs/architecture/hydraulics-capability-design.md holds the technical design; this ODD file tracks the methodology run and its evidence. Structural/reference checks and git diff --check passed. No application code, DB migration or vendor execution.
