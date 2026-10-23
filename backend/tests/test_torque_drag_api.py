@@ -8,7 +8,7 @@ from tempfile import TemporaryDirectory
 import unittest
 
 from fastapi.testclient import TestClient
-from wellplan_hydraulics.api import create_app
+from openoil.main import create_app
 
 
 ROUTE = '/api/torque-drag/calculate'

@@ -9,7 +9,7 @@ import unittest
 from unittest.mock import patch
 
 from fastapi.testclient import TestClient
-from wellplan_hydraulics.api import create_app
+from openoil.main import create_app
 from test_api import INPUT, expected_result
 
 
@@ -61,7 +61,7 @@ class VersionedCasesTests(unittest.TestCase):
     def test_old_schema_restart_idempotence_bytes_and_no_recalculation(self):
         for _ in range(2):
             with TestClient(create_app(self.path)) as client:
-                with patch('wellplan_hydraulics.application.calculate',
+                with patch('openoil.application.hydraulics.calculate',
                            side_effect=AssertionError('must not recalculate')):
                     self.assert_response(client.get('/api/cases/7'), 200, self.legacy)
                     self.assert_response(client.get('/api/cases'), 200, [self.legacy])
@@ -96,7 +96,7 @@ class VersionedCasesTests(unittest.TestCase):
             self.assert_response(client.post('/api/cases', json=INPUT), 201, dict(v1, id=9))
             self.provenance(client.get('/api/v2/cases/9').json())
         with TestClient(create_app(self.path)) as client:
-            with patch('wellplan_hydraulics.application.calculate',
+            with patch('openoil.application.hydraulics.calculate',
                        side_effect=AssertionError('must not recalculate')):
                 self.assert_response(client.get('/api/v2/cases/8'), 200, saved)
                 records = client.get('/api/v2/cases').json()
@@ -140,13 +140,13 @@ class VersionedCasesTests(unittest.TestCase):
                 ('list', 'get', '/api/v2/cases', {}),
                 ('get', 'get', '/api/v2/cases/7', {}),
             ]:
-                with patch('wellplan_hydraulics.storage.CaseStore.' + method,
+                with patch('openoil.adapters.outbound.case_store.CaseStore.' + method,
                            side_effect=ValueError('private infrastructure detail')):
                     response = getattr(client, verb)(route, **kwargs)
                 self.assertEqual((response.status_code, response.text), (500, 'Internal Server Error'))
                 self.assert_response(client.get('/api/v2/cases'), 200, baseline)
             # A serialization failure must not insert a partial snapshot either.
-            with patch('wellplan_hydraulics.application.provenance',
+            with patch('openoil.application.hydraulics.provenance',
                        return_value={'invalid': float('nan')}):
                 response = client.post('/api/v2/cases', json=BODY)
             self.assertEqual((response.status_code, response.text), (500, 'Internal Server Error'))

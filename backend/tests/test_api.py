@@ -10,8 +10,9 @@ from unittest.mock import patch
 
 from fastapi import HTTPException
 from fastapi.testclient import TestClient
-from wellplan_hydraulics.api import CalculationInput, create_app
-from wellplan_hydraulics.physics import Section, calculate
+from openoil.adapters.inbound.http.schemas import CalculationInput
+from openoil.main import create_app
+from openoil.domain.physics import Section, calculate
 
 
 INPUT = {
@@ -159,7 +160,7 @@ class ApiTests(unittest.TestCase):
 
     def test_load_and_list_do_not_recalculate_saved_snapshots(self):
         record = self.client.post('/api/cases', json=INPUT).json()
-        with patch('wellplan_hydraulics.application.calculate',
+        with patch('openoil.application.hydraulics.calculate',
                    side_effect=AssertionError('must not recalculate')):
             self.assert_response(self.client.get('/api/cases/1'), 200, record)
             self.assert_response(self.client.get('/api/cases'), 200, [record])
@@ -183,7 +184,7 @@ class ApiTests(unittest.TestCase):
                 ('get', 'get', '/api/cases/1', {}),
             ]:
                 with self.subTest(method=method):
-                    with patch('wellplan_hydraulics.storage.CaseStore.' + method,
+                    with patch('openoil.adapters.outbound.case_store.CaseStore.' + method,
                                side_effect=ValueError('private infrastructure detail')):
                         response = getattr(client, verb)(route, **kwargs)
                     self.assertEqual(response.status_code, 500)
