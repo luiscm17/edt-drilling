@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Results } from './Results';
 import { TorqueDragStudy } from './TorqueDragStudy';
 import { NozzleVelocityStudy } from './NozzleVelocityStudy';
+import { BitNozzlePressureLossStudy } from './BitNozzlePressureLossStudy';
 import type { Inputs, Snapshot, SavedCase, Section } from './types';
 import './styles.css';
 
@@ -35,7 +36,7 @@ async function request<T>(path: string, input?: Inputs): Promise<T> {
 }
 
 export default function App() {
-  const [study, setStudy] = useState<'hydraulics' | 'torque-drag' | 'nozzle-velocity'>('hydraulics');
+  const [study, setStudy] = useState<'hydraulics' | 'torque-drag' | 'nozzle-velocity' | 'bit-nozzle-pressure-loss'>('hydraulics');
   const [inputs, setInputs] = useState(initial);
   const [snapshot, setSnapshot] = useState<Snapshot | null>(null);
   const [cases, setCases] = useState<SavedCase[]>([]);
@@ -102,11 +103,16 @@ export default function App() {
           <span className="nav-index" aria-hidden="true">03</span>Nozzle velocity study
           <small>Flow · Total area · Velocity</small>
         </button>
-        <p className="nav-note">Three independent studies.<br />Only hydraulic snapshots are saved locally; other studies are temporary.</p>
+        <button type="button" aria-current={study === 'bit-nozzle-pressure-loss' ? 'page' : undefined}
+          aria-controls="bit-loss-view" onClick={() => setStudy('bit-nozzle-pressure-loss')}>
+          <span className="nav-index" aria-hidden="true">04</span>Bit/nozzle pressure-loss study
+          <small>Density · Flow · Total area · Pressure loss</small>
+        </button>
+        <p className="nav-note">Four independent studies.<br />Only hydraulic snapshots are saved locally; other studies are temporary.</p>
       </nav>
     <main>
-      <div className="view-heading"><div><p className="eyebrow">Analysis / {study === 'hydraulics' ? '01' : study === 'torque-drag' ? '02' : '03'}</p>
-        <h2>{study === 'hydraulics' ? 'Hydraulics' : study === 'torque-drag' ? 'Torque & drag' : 'Nozzle velocity'}</h2></div>
+      <div className="view-heading"><div><p className="eyebrow">Analysis / {study === 'hydraulics' ? '01' : study === 'torque-drag' ? '02' : study === 'nozzle-velocity' ? '03' : '04'}</p>
+        <h2>{study === 'hydraulics' ? 'Hydraulics' : study === 'torque-drag' ? 'Torque & drag' : study === 'nozzle-velocity' ? 'Nozzle velocity' : 'Bit/nozzle pressure loss'}</h2></div>
         <span className="view-mode">{study === 'hydraulics' ? 'SNAPSHOT WORKSPACE' : 'CALCULATE ONLY'}</span></div>
       {/* Keep inactive studies mounted so navigation never discards work or repeats requests. */}
       <div id="hydraulics-view" hidden={study !== 'hydraulics'}>
@@ -169,6 +175,7 @@ export default function App() {
       </div>
       <div id="torque-view" hidden={study !== 'torque-drag'}><TorqueDragStudy /></div>
       <div id="nozzle-view" hidden={study !== 'nozzle-velocity'}><NozzleVelocityStudy /></div>
+      <div id="bit-loss-view" hidden={study !== 'bit-nozzle-pressure-loss'}><BitNozzlePressureLossStudy /></div>
       <footer><strong>Know the boundary.</strong> Hydraulics excludes cuttings, bit optimization, swab/surge, real-time data and torque/drag coupling. Its vertical model excludes eccentricity, roughness, inclination, non-Newtonian rheology and thermal effects. The separate torque/drag study has its own straight-well limits. Independently validate before any engineering use.</footer>
     </main>
     </div>

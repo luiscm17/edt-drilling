@@ -6,7 +6,9 @@ The hydraulic capability models steady, incompressible, single-phase Newtonian
 flow in a concentric vertical well, with saved snapshots. A separate, non-persistent
 torque-and-drag study explores quasi-static contact in a straight inclined well.
 A third independent, calculate-only nozzle study evaluates a documented velocity
-equation from editable flow and total nozzle area.
+equation from editable flow and total nozzle area. A fourth, separate calculate-only
+study evaluates the documented bit/nozzle pressure-loss contribution from density,
+flow and total nozzle area; it never changes the base hydraulic result.
 
 **Not validated for field decisions or safety-critical pressure limits.** Passing
 tests and display precision do not establish engineering accuracy. Independent
@@ -28,8 +30,8 @@ Open `http://127.0.0.1:5173`. Stop the foreground app with Ctrl+C.
 
 ### Workbench navigation
 
-Select **Hydraulics & saved cases**, **Torque & drag study** or
-**Nozzle velocity study** in the study navigation to switch views, rather than scroll between panels. The active study
+Select **Hydraulics & saved cases**, **Torque & drag study**,
+**Nozzle velocity study** or **Bit/nozzle pressure-loss study** in the study navigation to switch views, rather than scroll between panels. The active study
 is marked visually and for assistive technology. Use Tab to focus a study button
 and Enter or Space to select it; **Skip to inputs** targets the current study.
 On narrow screens the study selector sits above the workspace.
@@ -74,6 +76,59 @@ never changes the hydraulic ledger. Edits, a new request or any request failure
 clear its previous result. Domain rejections appear as an alert with backend detail;
 network and non-JSON errors also permit retry. See the exact
 [API contract](backend/README.md#calculate-only-torque-and-drag-study).
+
+### Bit/nozzle pressure-loss study (calculate only)
+
+1. Select **Bit/nozzle pressure-loss study**. Opening it does not calculate.
+2. Enter positive finite density (**kg/m³**), flow (**m³/s**) and total effective
+   nozzle flow area (**m²**, sum of all nozzle areas, not diameter).
+3. Select **Calculate bit/nozzle pressure loss** to request the separate contribution
+   in **Pa**. The accessible table and provenance use only the returned API result.
+
+`POST /api/bit-nozzle-pressure-loss/calculate` accepts raw numeric SI JSON (no V2
+or saved-case envelope):
+
+```json
+{"density_kg_m3":1198.2642731689612,"flow_m3_s":0.018675,"total_nozzle_area_m2":0.00064516}
+```
+
+The response contains `pressure_loss: {quantity: "bit_nozzle_pressure_loss",
+value: <unrounded number>, unit: "Pa"}`, `model_id:
+"openoil.hydraulics.documented-bit-nozzle-pressure-loss"`, `model_version:
+"1.0.0"`, `input_schema_version: "1"`, `result_schema_version: "1"`,
+`coefficient: {symbol: "Cd", value: 0.95, unit: "1", selection:
+"fixed documented coefficient"}` and `applicability` with `status: "supported"`,
+`assumptions` and `limitations` text. These are temporary calculation metadata,
+not a saved snapshot. No save action, case ID or pressure aggregate is defined.
+In particular this contribution is **not standpipe pressure** and is never added
+silently to the base hydraulics response or stored cases.
+
+The backend reuses the documented nozzle velocity relation
+`v (ft/s) = Cd × Q (US gpm) / (2.96 × A (in²))`, converts velocity to m/s, and
+calculates `ΔP (Pa) = ρ (kg/m³) × v² / (2 × Cd²)`, with fixed documented
+**Cd = 0.95**. The literal **2.96** is retained, including the conversion caveat
+described below. The independent documented example of **296 gpm, 1 in² TFA,
+10 ppg** gives **95 ft/s**, approximately **80.7299 psi / 556612.8 Pa**
+(SI example tolerance: 2 Pa). The compact JSON above rounds the example flow;
+use `296 × 0.003785411784 / 60 m³/s` for its full precision.
+See the [documentation, static REA evidence and SI derivation](research/hydraulics/004-bit-nozzle-pressure-loss.md).
+No WellPlan runtime parity or field validation is claimed.
+
+Supported scope is steady incompressible single-phase flow with constant density
+and supplied effective nozzle area. System optimization, parasitic/tool-joint and
+surface losses, erosion, non-Newtonian, compressible, transient and multiphase
+effects are excluded. Use only within those assumptions; the three-number input
+cannot detect fluid phase or operating conditions automatically. Nonpositive,
+non-finite, missing, extra or nonnumeric inputs return HTTP 422 with
+`{"detail":"invalid request body"}`; numerical overflow/underflow returns HTTP 422
+with `{"detail":"calculation outside finite numerical range"}`. Errors never
+create a record or consume an identifier.
+
+Input edits, new requests and failures clear previous results and their provenance.
+Controls are disabled while calculating; errors are announced as alerts and retry
+is available. Navigation retains temporary state without changing other studies
+or the case ledger. Display rounds to at most four decimals; very small values may
+show zero. Precision and passing software tests do not establish engineering accuracy.
 
 ### Nozzle velocity study (calculate only)
 
