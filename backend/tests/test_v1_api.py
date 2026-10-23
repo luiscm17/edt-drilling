@@ -1,6 +1,7 @@
-"""V1 route bridge; legacy route removal is deferred to migration cleanup."""
+"""Sole public V1 contract and rejection of removed legacy routes."""
 
 from contextlib import redirect_stderr, redirect_stdout
+from dataclasses import asdict
 import io
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -8,6 +9,7 @@ import unittest
 
 from fastapi.testclient import TestClient
 from openoil.main import create_app
+from openoil.domain import bit_nozzle_pressure_loss, nozzle_velocity, torque_drag
 from test_api import INPUT, expected_result
 from test_torque_drag_api import INPUT as TORQUE_INPUT
 
@@ -62,12 +64,19 @@ class V1RouteTests(unittest.TestCase):
         ]
         for name, data in studies:
             with self.subTest(study=name):
-                legacy = self.client.post(f"/api/{name}/calculate", json=data)
-                self.assertEqual(legacy.status_code, 200, legacy.text)
+                if name == "nozzle-velocity":
+                    expected = {"velocity_m_s": nozzle_velocity.calculate(**data)}
+                elif name == "bit-nozzle-pressure-loss":
+                    expected = bit_nozzle_pressure_loss.calculate(**data)
+                else:
+                    expected = asdict(torque_drag.calculate(
+                        **dict(data, sections=[torque_drag.Section(**s) for s in data["sections"]])
+                    ))
+                    expected["sections"] = list(expected["sections"])
                 out, err = io.StringIO(), io.StringIO()
                 with redirect_stdout(out), redirect_stderr(err):
                     response = self.client.post(f"/api/v1/{name}/calculate", json=data)
-                self.assert_response(response, 200, legacy.json())
+                self.assert_response(response, 200, expected)
                 self.assertEqual((out.getvalue(), err.getvalue()), ("", ""))
                 self.assert_response(self.client.get("/api/v1/cases"), 200, [])
         self.assert_response(
@@ -76,18 +85,30 @@ class V1RouteTests(unittest.TestCase):
             {"id": 1, "input": INPUT, "result": expected_result(INPUT)},
         )
 
-    def test_bridge_shares_saved_cases_with_legacy_paths(self):
+    def test_legacy_routes_are_rejected_without_mutating_v1_cases(self):
         record = {"id": 1, "input": INPUT, "result": expected_result(INPUT)}
-        self.assert_response(self.client.post("/api/cases", json=INPUT), 201, record)
+        self.assert_response(self.client.post("/api/v1/cases", json=INPUT), 201, record)
+        requests = [
+            ("get", "/api/cases", {}),
+            ("get", "/api/cases/1", {}),
+            ("get", "/api/v2/cases", {}),
+            ("get", "/api/v2/cases/1", {}),
+            ("post", "/api/calculate", {"json": INPUT}),
+            ("post", "/api/cases", {"json": INPUT}),
+            ("post", "/api/v2/calculate", {"json": {"input_schema_version": "1", "input": INPUT}}),
+            ("post", "/api/v2/cases", {"json": {"input_schema_version": "1", "input": INPUT}}),
+            ("post", "/api/nozzle-velocity/calculate", {"json": {"flow_m3_s": 0.01, "total_nozzle_area_m2": 0.001}}),
+            ("post", "/api/bit-nozzle-pressure-loss/calculate", {"json": {"density_kg_m3": 1000, "flow_m3_s": 0.01, "total_nozzle_area_m2": 0.001}}),
+            ("post", "/api/torque-drag/calculate", {"json": TORQUE_INPUT}),
+        ]
+        for method, path, kwargs in requests:
+            with self.subTest(path=path):
+                self.assert_response(getattr(self.client, method)(path, **kwargs), 404, {"detail": "Not Found"})
+        paths = set(self.client.get("/openapi.json").json()["paths"])
+        self.assertTrue(paths)
+        self.assertTrue(all(path.startswith("/api/v1/") for path in paths), paths)
         self.assert_response(self.client.get("/api/v1/cases"), 200, [record])
-        self.assert_response(self.client.get("/api/v1/cases/1"), 200, record)
-        second = dict(record, id=2)
-        self.assert_response(self.client.post("/api/v1/cases", json=INPUT), 201, second)
-        self.assert_response(self.client.get("/api/cases/2"), 200, second)
-        self.assert_response(self.client.get("/api/cases"), 200, [record, second])
-        self.assert_response(
-            self.client.post("/api/calculate", json=INPUT), 200, expected_result(INPUT)
-        )
+        self.assert_response(self.client.post("/api/v1/cases", json=INPUT), 201, dict(record, id=2))
 
 
 if __name__ == "__main__":

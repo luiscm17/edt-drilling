@@ -108,8 +108,7 @@ class CaseSchemaCompatibilityTests(unittest.TestCase):
                     self.assert_response(client.get('/api/v1/cases'), 200, baseline)
                     self.assert_old_snapshot_unchanged(7)
             for value in ['0', '-1', 'abc', '9223372036854775808']:
-                # Malformed-path migration belongs with the T5b error-handler fix.
-                self.assert_response(client.get('/api/cases/' + value), 422,
+                self.assert_response(client.get('/api/v1/cases/' + value), 422,
                                      {'detail': 'invalid case id'})
             self.assert_response(client.get('/api/v1/cases/8'), 404, {'detail': 'case not found'})
             for method, verb, route, kwargs in [

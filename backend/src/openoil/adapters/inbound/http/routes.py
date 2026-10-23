@@ -14,27 +14,20 @@ from openoil.adapters.inbound.http.schemas import (
     NozzleVelocityResult,
     TorqueDragInput,
     TorqueDragResult,
-    VersionedCalculationInput,
 )
 
 
 def register_routes(app, service):
-    # Migration bridge: legacy paths share handlers until their callers move to v1.
     router = APIRouter(prefix="/api/v1")
 
     @router.post(
         "/bit-nozzle-pressure-loss/calculate",
         response_model=BitNozzlePressureLossResult,
     )
-    @app.post(
-        "/api/bit-nozzle-pressure-loss/calculate",
-        response_model=BitNozzlePressureLossResult,
-    )
     def calculate_bit_nozzle_pressure_loss(inputs: BitNozzlePressureLossInput):
         return studies.calculate_bit_nozzle_pressure_loss(**inputs.model_dump())
 
     @router.post("/nozzle-velocity/calculate", response_model=NozzleVelocityResult)
-    @app.post("/api/nozzle-velocity/calculate", response_model=NozzleVelocityResult)
     def calculate_nozzle_velocity(inputs: NozzleVelocityInput):
         velocity = studies.calculate_nozzle_velocity(
             inputs.flow_m3_s, inputs.total_nozzle_area_m2
@@ -42,7 +35,6 @@ def register_routes(app, service):
         return {"velocity_m_s": velocity}
 
     @router.post("/torque-drag/calculate", response_model=TorqueDragResult)
-    @app.post("/api/torque-drag/calculate", response_model=TorqueDragResult)
     def calculate_torque_drag(inputs: TorqueDragInput):
         result = studies.calculate_torque_drag(
             sections=[
@@ -59,39 +51,19 @@ def register_routes(app, service):
         return body
 
     @router.post("/calculate")
-    @app.post("/api/calculate")
     def calculate_case(inputs: CalculationInput):
         return service.calculate(inputs.to_case())
 
     @router.post("/cases", status_code=201)
-    @app.post("/api/cases", status_code=201)
     def save_case(inputs: CalculationInput):
         return service.save(inputs.to_case())
 
     @router.get("/cases")
-    @app.get("/api/cases")
     def list_cases():
         return service.list()
 
     @router.get("/cases/{case_id}")
-    @app.get("/api/cases/{case_id}")
     def get_case(case_id: int):
         return service.load(case_id)
-
-    @app.post("/api/v2/calculate")
-    def calculate_versioned(inputs: VersionedCalculationInput):
-        return service.calculate_versioned(inputs.input.to_case())
-
-    @app.post("/api/v2/cases", status_code=201)
-    def save_versioned(inputs: VersionedCalculationInput):
-        return service.save_versioned(inputs.input.to_case())
-
-    @app.get("/api/v2/cases")
-    def list_versioned():
-        return service.list_versioned()
-
-    @app.get("/api/v2/cases/{case_id}")
-    def get_versioned(case_id: int):
-        return service.load_versioned(case_id)
 
     app.include_router(router)

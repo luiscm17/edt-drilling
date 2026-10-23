@@ -16,7 +16,7 @@ def register_error_handlers(app):
         # Do not echo untrusted input, nonfinite floats, or framework-specific errors.
         detail = (
             "invalid case id"
-            if request.url.path.startswith(("/api/cases/", "/api/v2/cases/"))
+            if request.url.path.startswith("/api/v1/cases/")
             else "invalid request body"
         )
         return JSONResponse(status_code=422, content={"detail": detail})

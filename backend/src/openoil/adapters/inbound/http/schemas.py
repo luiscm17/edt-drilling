@@ -95,12 +95,6 @@ class CalculationInput(BaseModel):
             raise HTTPException(status_code=422, detail=str(error)) from None
 
 
-class VersionedCalculationInput(BaseModel):
-    model_config = ConfigDict(extra="forbid", strict=True)
-    input_schema_version: Literal["1"]
-    input: CalculationInput
-
-
 class TorqueDragSectionInput(BaseModel):
     model_config = ConfigDict(extra="forbid", strict=True, allow_inf_nan=False)
     length_m: float

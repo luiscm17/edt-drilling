@@ -196,8 +196,7 @@ class ApiTests(unittest.TestCase):
         self.assert_response(self.client.get('/api/v1/cases/1'), 404,
                              {'detail': 'case not found'})
         for value in ['0', '-1', 'abc', '9223372036854775808']:
-            # Malformed-path migration belongs with the T5b error-handler fix.
-            self.assert_response(self.client.get('/api/cases/' + value), 422,
+            self.assert_response(self.client.get('/api/v1/cases/' + value), 422,
                                  {'detail': 'invalid case id'})
         self.assert_response(self.client.get('/api/v1/cases'), 200, [])
         self.assertEqual(self.client.post('/api/v1/cases', json=INPUT).json()['id'], 1)
