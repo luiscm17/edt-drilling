@@ -3,7 +3,7 @@ import { Results } from './Results';
 import { TorqueDragStudy } from './TorqueDragStudy';
 import { NozzleVelocityStudy } from './NozzleVelocityStudy';
 import { BitNozzlePressureLossStudy } from './BitNozzlePressureLossStudy';
-import type { Inputs, Snapshot, SavedCase, Section } from './types';
+import type { Inputs, Result, Snapshot, SavedCase, Section } from './types';
 import './styles.css';
 
 const defaultSection: Section = { length_m: 100, pipe_id_m: 0.08, pipe_od_m: 0.1, hole_id_m: 0.2 };
@@ -73,8 +73,8 @@ export default function App() {
         setSnapshot(record);
         setStatus(`Saved case ${record.id}. Results are a stored snapshot.`);
       } else {
-        const calculated = await request<Snapshot>('/api/v1/calculate', inputs);
-        setSnapshot(calculated); setStatus('Calculation complete. Not saved.');
+        const calculated = await request<Result>('/api/v1/calculate', inputs);
+        setSnapshot({ input: inputs, result: calculated }); setStatus('Calculation complete. Not saved.');
       }
     });
   }
@@ -162,7 +162,7 @@ export default function App() {
                 const loaded = await request<SavedCase>(`/api/v1/cases/${record.id}`);
                 setInputs(loaded.input); setSnapshot(loaded);
                 setStatus(`Loaded case ${loaded.id}. Results are a stored snapshot.`);
-              })}>Load case {record.id}<span>{record.input.sections.length} section(s) · {record.result.depth_m} m</span><span>{record.provenance ? `${record.provenance.model_id} · v${record.provenance.model_version}` : 'Unknown model · legacy snapshot'}</span></button></li>)}</ul>}
+              })}>Load case {record.id}<span>{record.input.sections.length} section(s) · {record.result.depth_m} m</span><span>Provenance not exposed by the v1 API</span></button></li>)}</ul>}
           </section>
         </section>
         <section className="results panel" aria-labelledby="results-heading" aria-busy={!!busy}>

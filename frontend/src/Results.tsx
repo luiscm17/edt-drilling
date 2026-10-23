@@ -9,7 +9,7 @@ const tick = (value: number) => value.toLocaleString('en-US', { notation: 'compa
 const colors = { pipe: '#142b3b', annulus: '#a64026', hydro: '#526c79', grid: '#d7d9d1' };
 const margins = { top: 24, right: 24, bottom: 18, left: 24 };
 
-export function Results({ snapshot: { input, result, provenance } }: { snapshot: Snapshot }) {
+export function Results({ snapshot: { input, result } }: { snapshot: Snapshot }) {
   const losses = result.sections.map((section, i) => ({
     section: `S${i + 1}`, pipe: section.pipe.pressure_loss_pa, annulus: section.annulus.pressure_loss_pa,
   }));
@@ -33,15 +33,10 @@ export function Results({ snapshot: { input, result, provenance } }: { snapshot:
         <span>{label}</span><strong>{number(value, unit === 'kg/m³' ? 1 : 2)}</strong><small>{unit}</small>
       </div>)}
     </div>
-    <section className={`provenance ${provenance ? '' : 'unknown'}`} aria-label="Snapshot provenance">
-      <p className="eyebrow">Result identity / {provenance ? 'Recorded' : 'Unknown'}</p>
-      {provenance ? <>
-        <strong>{provenance.model_id}</strong>
-        <p>Model version {provenance.model_version}</p>
-        <p>Input schema {provenance.input_schema_version} · Result schema {provenance.result_schema_version} · {provenance.units}</p>
-        <p>Created <time dateTime={provenance.created_at}>{provenance.created_at}</time></p>
-        <details><summary>Recorded model assumptions</summary><ul>{provenance.assumptions.map(text => <li key={text}>{text}</li>)}</ul></details>
-      </> : <><strong>Unknown model · legacy snapshot</strong><p>No provenance was recorded. Loading preserves this snapshot; calculate explicitly to obtain a new model identity.</p></>}
+    <section className="provenance unknown" aria-label="Snapshot provenance">
+      <p className="eyebrow">Model identity / Not provided</p>
+      <strong>Provenance not exposed by the v1 API</strong>
+      <p>The public response includes the calculation snapshot, but not per-case model metadata.</p>
     </section>
     <div className="table-scroll"><table aria-label="Pressure and density summary" className="summary-table">
       <thead><tr><th scope="col">Quantity</th><th scope="col">Value</th><th scope="col">Unit</th></tr></thead>

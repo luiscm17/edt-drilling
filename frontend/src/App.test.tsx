@@ -20,20 +20,14 @@ const result = {
   depth_m: 100, pipe_friction_pa: 1000, annular_friction_pa: 200,
   hydrostatic_pa: 980665, bottomhole_annular_pa: 980865, ecd_kg_m3: 1000.204,
 };
-const provenance = {
-  model_id: 'openoil.hydraulics.newtonian-concentric-vertical', model_version: '1.0.0',
-  units: 'SI', input_schema_version: '1', result_schema_version: '1',
-  assumptions: ['Steady incompressible single-phase Newtonian flow; constant properties.'],
-  created_at: '2026-01-01T00:00:00+00:00',
-};
-const snapshot = { input, result, provenance };
+const snapshot = { input, result };
 const record = { id: 1, ...snapshot };
-function api(records: (Omit<typeof record, 'provenance'> & { provenance: typeof provenance | null })[] = []) {
+function api(records: typeof record[] = []) {
   const fetcher = vi.fn(async (url: RequestInfo | URL, init?: RequestInit) => {
     if (url === '/api/v1/cases' && !init) return Response.json(records);
     if (url === '/api/v1/cases/1') return Response.json(records[0] ?? record);
     if (url === '/api/v1/cases') return Response.json(record, { status: 201 });
-    if (url === '/api/v1/calculate') return Response.json(snapshot);
+    if (url === '/api/v1/calculate') return Response.json(result);
     throw new Error(`Unexpected route: ${url}`);
   });
   vi.stubGlobal('fetch', fetcher);
@@ -44,12 +38,42 @@ describe('OpenOil public v1 workbench', () => {
   it('uses the single v1 API prefix and sends the unwrapped calculation input', async () => {
     const fetcher = api(); const user = userEvent.setup(); render(<App />);
     await waitFor(() => expect(fetcher).toHaveBeenCalledWith('/api/v1/cases'));
-    fetcher.mockResolvedValueOnce(Response.json(snapshot));
+    fetcher.mockResolvedValueOnce(Response.json(result));
     await user.click(screen.getByRole('button', { name: 'Calculate' }));
     await screen.findByRole('table', { name: 'Section pressure losses' });
     expect(fetcher).toHaveBeenLastCalledWith('/api/v1/calculate', {
       method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(input),
     });
+  });
+
+  it('renders the direct v1 calculation result without a versioned snapshot envelope', async () => {
+    const fetcher = vi.fn(async (url: RequestInfo | URL) => {
+      if (url === '/api/v1/cases') return Response.json([]);
+      if (url === '/api/v1/calculate') return Response.json(result);
+      throw new Error(`Unexpected route: ${url}`);
+    });
+    vi.stubGlobal('fetch', fetcher);
+    const user = userEvent.setup(); render(<App />);
+    await user.click(screen.getByRole('button', { name: 'Calculate' }));
+    expect(await screen.findByRole('table', { name: 'Section pressure losses' })).toBeVisible();
+    expect(screen.getByText('Provenance not exposed by the v1 API')).toBeVisible();
+  });
+
+  it('does not label provenance-free v1 cases as legacy snapshots', async () => {
+    const v1Record = { id: 1, input, result };
+    const fetcher = vi.fn(async (url: RequestInfo | URL) => {
+      if (url === '/api/v1/cases') return Response.json([v1Record]);
+      if (url === '/api/v1/cases/1') return Response.json(v1Record);
+      throw new Error(`Unexpected route: ${url}`);
+    });
+    vi.stubGlobal('fetch', fetcher);
+    const user = userEvent.setup(); render(<App />);
+    const load = await screen.findByRole('button', { name: /Load case 1/ });
+    expect(load).toHaveTextContent('Provenance not exposed by the v1 API');
+    await user.click(load);
+    expect(await screen.findByRole('table', { name: 'Section pressure losses' })).toBeVisible();
+    expect(screen.getAllByText('Provenance not exposed by the v1 API')).toHaveLength(2);
+    expect(screen.queryByText('Unknown model · legacy snapshot')).not.toBeInTheDocument();
   });
 
   it('isolates bit/nozzle edits and rejection from retained hydraulic snapshots and legacy studies', async () => {
@@ -196,12 +220,10 @@ describe('OpenOil public v1 workbench', () => {
     expect(screen.getByRole('img', { name: /Annular pressure versus vertical depth/ })).toBeVisible();
     await user.click(screen.getByText('Profile values (accessible data)'));
     expect(screen.getByRole('table', { name: 'Annular pressure profile values' })).toHaveTextContent('980,865');
-    expect(screen.getByText(provenance.model_id)).toBeVisible();
-    expect(screen.getByText(/Model version 1.0.0/)).toBeVisible();
-    expect(screen.getByText(/Input schema 1 · Result schema 1 · SI/)).toBeVisible();
+    expect(screen.getByText('Provenance not exposed by the v1 API')).toBeVisible();
     await user.type(screen.getByLabelText('Flow (m³/s)'), '1');
     expect(screen.queryByRole('table', { name: 'Section pressure losses' })).not.toBeInTheDocument();
-    expect(screen.queryByText(provenance.model_id)).not.toBeInTheDocument();
+    expect(screen.queryByText('Provenance not exposed by the v1 API')).not.toBeInTheDocument();
     expect(screen.getByText(/Inputs changed/)).toBeVisible();
   });
 
@@ -233,17 +255,6 @@ describe('OpenOil public v1 workbench', () => {
     expect(screen.getByText(/Loaded case 1. Results are a stored snapshot/)).toBeVisible();
     await user.click(screen.getByRole('button', { name: 'Refresh cases' }));
     expect(fetcher).toHaveBeenCalledWith('/api/v1/cases');
-  });
-
-  it('marks legacy provenance unknown in the ledger and loaded snapshot', async () => {
-    const fetcher = api([{ ...record, provenance: null }]); const user = userEvent.setup(); render(<App />);
-    const load = await screen.findByRole('button', { name: /Load case 1/ });
-    expect(load).toHaveTextContent('Unknown model · legacy snapshot');
-    await user.click(load);
-    expect(await screen.findByText('Unknown model · legacy snapshot', { selector: 'strong' })).toBeVisible();
-    expect(screen.queryByText(provenance.model_id)).not.toBeInTheDocument();
-    expect(screen.getByRole('table', { name: 'Section pressure losses' })).toHaveTextContent('1,000');
-    expect(fetcher.mock.calls.filter(([, init]) => init)).toHaveLength(0);
   });
 
   it('shows exact rejection detail, clears previous results and leaves the ledger unchanged', async () => {
