@@ -1,11 +1,17 @@
 [project]
-name = "wellplan-hydraulics"
+name = "openoil"
 version = "0.1.0"
 requires-python = ">=3.13"
-dependencies = ["fastapi>=0.115,<1", "uvicorn>=0.34,<1"]
+dependencies = [
+    "fastapi[standard]>=0.138.1",
+    "pydantic-settings>=2.14.2",
+    "sqlalchemy>=2.0.51",]
 
 [dependency-groups]
-dev = ["httpx>=0.28,<1"]
+dev = [
+    "httpx>=0.28,<1",
+    "ruff>=0.17.2",
+]
 
 [tool.uv]
 package = false
