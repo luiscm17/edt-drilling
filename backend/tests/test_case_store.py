@@ -1,7 +1,8 @@
 """The outbound case repository preserves immutable snapshots and ID sequencing."""
+import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
-import unittest
+from unittest.mock import MagicMock, patch
 
 from openoil.adapters.outbound.case_store import CaseStore
 
@@ -33,3 +34,19 @@ class CaseStoreTests(unittest.TestCase):
             self.store.save({'flow_m3_s': float('nan')}, {})
 
         self.assertEqual(self.store.save({'flow_m3_s': 1}, {})['id'], 1)
+
+    def test_missing_generated_id_fails_without_storing_or_consuming_id(self):
+        connection = MagicMock()
+        connection.execute.return_value.inserted_primary_key = None
+        transaction = MagicMock()
+        transaction.__enter__.return_value = connection
+        transaction.__exit__.return_value = False
+
+        with patch.object(self.store.engine, 'begin', return_value=transaction):
+            with self.assertRaisesRegex(RuntimeError, 'database returned no case ID'):
+                self.store.save({'density_kg_m3': 1000}, {'pressure_pa': 1200})
+
+        transaction.__exit__.assert_called_once()
+        self.assertIsInstance(transaction.__exit__.call_args.args[1], RuntimeError)
+        self.assertEqual(self.store.list(), [])
+        self.assertEqual(self.store.save({'density_kg_m3': 1000}, {})['id'], 1)

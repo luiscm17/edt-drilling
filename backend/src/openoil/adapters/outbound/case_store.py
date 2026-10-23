@@ -73,7 +73,10 @@ class CaseStore:
                     provenance_json=provenance_json,
                 )
             )
-            case_id = inserted.inserted_primary_key[0]
+            inserted_primary_key = inserted.inserted_primary_key
+            if inserted_primary_key is None:
+                raise RuntimeError("database returned no case ID")
+            case_id = inserted_primary_key[0]
         return self._record(
             {
                 "id": case_id,
