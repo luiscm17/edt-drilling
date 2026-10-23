@@ -41,7 +41,7 @@ class BitNozzlePressureQuantity(BaseModel):
 class BitNozzleCoefficient(BaseModel):
     model_config = ConfigDict(extra="forbid", strict=True, allow_inf_nan=False)
     symbol: Literal["Cd"]
-    value: Literal[0.95]
+    value: float = Field(ge=0.95, le=0.95)
     unit: Literal["1"]
     selection: Literal["fixed documented coefficient"]
 
