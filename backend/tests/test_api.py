@@ -46,8 +46,8 @@ class ApiTests(unittest.TestCase):
         data = {'density_kg_m3': 1198.2642731689612,
                 'flow_m3_s': 296 * 0.003785411784 / 60,
                 'total_nozzle_area_m2': 0.0254 ** 2}
-        route = '/api/bit-nozzle-pressure-loss/calculate'
-        record = self.client.post('/api/cases', json=INPUT).json()
+        route = '/api/v1/bit-nozzle-pressure-loss/calculate'
+        record = self.client.post('/api/v1/cases', json=INPUT).json()
         out, err = io.StringIO(), io.StringIO()
         with redirect_stdout(out), redirect_stderr(err):
             response = self.client.post(route, json=data)
@@ -60,9 +60,9 @@ class ApiTests(unittest.TestCase):
         self.assertEqual(body['coefficient']['value'], 0.95)
         self.assertEqual(body['applicability']['status'], 'supported')
         # The new payload must not acquire meaning on any existing route.
-        for old_route in ['/api/calculate', '/api/cases', '/api/v2/calculate',
-                          '/api/v2/cases', '/api/nozzle-velocity/calculate',
-                          '/api/torque-drag/calculate']:
+        for old_route in ['/api/v1/calculate', '/api/v1/cases',
+                          '/api/v1/nozzle-velocity/calculate',
+                          '/api/v1/torque-drag/calculate']:
             self.assert_response(self.client.post(old_route, json=data), 422,
                                  {'detail': 'invalid request body'})
         invalid = [{}, dict(data, extra=1), dict(data, density_kg_m3=True),
@@ -81,37 +81,37 @@ class ApiTests(unittest.TestCase):
         self.assert_response(self.client.post(route, json=dict(data, density_kg_m3=1e308)), 422,
                              {'detail': 'calculation outside finite numerical range'})
         self.assertEqual((out.getvalue(), err.getvalue()), ('', ''))
-        self.assert_response(self.client.get('/api/cases'), 200, [record])
-        self.assert_response(self.client.get('/api/cases/1'), 200, record)
-        self.assertEqual(self.client.post('/api/cases', json=INPUT).json()['id'], 2)
+        self.assert_response(self.client.get('/api/v1/cases'), 200, [record])
+        self.assert_response(self.client.get('/api/v1/cases/1'), 200, record)
+        self.assertEqual(self.client.post('/api/v1/cases', json=INPUT).json()['id'], 2)
         # The existing base calculation keeps its exact contract.
-        self.assert_response(self.client.post('/api/calculate', json=INPUT), 200, expected_result(INPUT))
+        self.assert_response(self.client.post('/api/v1/calculate', json=INPUT), 200, expected_result(INPUT))
 
     def test_calculate_matches_core_without_saving_or_output(self):
         original = deepcopy(INPUT)
         out, err = io.StringIO(), io.StringIO()
         with redirect_stdout(out), redirect_stderr(err):
-            self.assert_response(self.client.post('/api/calculate', json=INPUT),
+            self.assert_response(self.client.post('/api/v1/calculate', json=INPUT),
                                  200, expected_result(INPUT))
         self.assertEqual((out.getvalue(), err.getvalue()), ('', ''))
         self.assertEqual(INPUT, original)
-        self.assert_response(self.client.get('/api/cases'), 200, [])
-        self.assertEqual(self.client.post('/api/cases', json=INPUT).json()['id'], 1)
+        self.assert_response(self.client.get('/api/v1/cases'), 200, [])
+        self.assertEqual(self.client.post('/api/v1/cases', json=INPUT).json()['id'], 1)
 
     def test_saved_case_round_trip_and_persistence(self):
         record = {'id': 1, 'input': INPUT, 'result': expected_result(INPUT)}
-        self.assert_response(self.client.post('/api/cases', json=INPUT), 201, record)
-        self.assert_response(self.client.get('/api/cases'), 200, [record])
-        self.assert_response(self.client.get('/api/cases/1'), 200, record)
+        self.assert_response(self.client.post('/api/v1/cases', json=INPUT), 201, record)
+        self.assert_response(self.client.get('/api/v1/cases'), 200, [record])
+        self.assert_response(self.client.get('/api/v1/cases/1'), 200, record)
         # A new app/connection must see the committed record.
         with TestClient(create_app(self.path)) as restarted:
-            self.assert_response(restarted.get('/api/cases/1'), 200, record)
+            self.assert_response(restarted.get('/api/v1/cases/1'), 200, record)
             second = dict(record, id=2)
-            self.assert_response(restarted.post('/api/cases', json=INPUT), 201, second)
-            self.assert_response(restarted.get('/api/cases'), 200, [record, second])
+            self.assert_response(restarted.post('/api/v1/cases', json=INPUT), 201, second)
+            self.assert_response(restarted.get('/api/v1/cases'), 200, [record, second])
 
     def test_rejected_inputs_leave_rows_and_ids_unchanged_and_are_silent(self):
-        record = self.client.post('/api/cases', json=INPUT).json()
+        record = self.client.post('/api/v1/cases', json=INPUT).json()
         invalid = []
         for key, value in [('density_kg_m3', 0), ('viscosity_pa_s', -1),
                            ('flow_m3_s', 0), ('sections', [])]:
@@ -142,7 +142,7 @@ class ApiTests(unittest.TestCase):
         del data['density_kg_m3']
         invalid.extend([(data, 'invalid request body'), ([], 'invalid request body'),
                         (None, 'invalid request body')])
-        for route in ['/api/calculate', '/api/cases']:
+        for route in ['/api/v1/calculate', '/api/v1/cases']:
             for data, message in invalid:
                 with self.subTest(route=route, data=data):
                     out, err = io.StringIO(), io.StringIO()
@@ -150,20 +150,20 @@ class ApiTests(unittest.TestCase):
                         self.assert_response(self.client.post(route, json=data),
                                              422, {'detail': message})
                     self.assertEqual((out.getvalue(), err.getvalue()), ('', ''))
-                    self.assert_response(self.client.get('/api/cases'), 200, [record])
+                    self.assert_response(self.client.get('/api/v1/cases'), 200, [record])
             for raw in ['{', '{"density_kg_m3": NaN}', '{"flow_m3_s": Infinity}']:
                 self.assert_response(self.client.post(route, content=raw,
                                      headers={'content-type': 'application/json'}),
                                      422, {'detail': 'invalid request body'})
-                self.assert_response(self.client.get('/api/cases'), 200, [record])
-        self.assertEqual(self.client.post('/api/cases', json=INPUT).json()['id'], 2)
+                self.assert_response(self.client.get('/api/v1/cases'), 200, [record])
+        self.assertEqual(self.client.post('/api/v1/cases', json=INPUT).json()['id'], 2)
 
     def test_load_and_list_do_not_recalculate_saved_snapshots(self):
-        record = self.client.post('/api/cases', json=INPUT).json()
+        record = self.client.post('/api/v1/cases', json=INPUT).json()
         with patch('openoil.application.hydraulics.calculate',
                    side_effect=AssertionError('must not recalculate')):
-            self.assert_response(self.client.get('/api/cases/1'), 200, record)
-            self.assert_response(self.client.get('/api/cases'), 200, [record])
+            self.assert_response(self.client.get('/api/v1/cases/1'), 200, record)
+            self.assert_response(self.client.get('/api/v1/cases'), 200, [record])
 
     def test_existing_input_result_helper_is_preserved(self):
         data = CalculationInput(**INPUT)
@@ -179,9 +179,9 @@ class ApiTests(unittest.TestCase):
     def test_repository_errors_remain_server_errors_not_input_errors(self):
         with TestClient(create_app(self.path), raise_server_exceptions=False) as client:
             for method, verb, route, kwargs in [
-                ('save', 'post', '/api/cases', {'json': INPUT}),
-                ('list', 'get', '/api/cases', {}),
-                ('get', 'get', '/api/cases/1', {}),
+                ('save', 'post', '/api/v1/cases', {'json': INPUT}),
+                ('list', 'get', '/api/v1/cases', {}),
+                ('get', 'get', '/api/v1/cases/1', {}),
             ]:
                 with self.subTest(method=method):
                     with patch('openoil.adapters.outbound.case_store.CaseStore.' + method,
@@ -189,33 +189,34 @@ class ApiTests(unittest.TestCase):
                         response = getattr(client, verb)(route, **kwargs)
                     self.assertEqual(response.status_code, 500)
                     self.assertEqual(response.text, 'Internal Server Error')
-        self.assert_response(self.client.get('/api/cases'), 200, [])
-        self.assertEqual(self.client.post('/api/cases', json=INPUT).json()['id'], 1)
+        self.assert_response(self.client.get('/api/v1/cases'), 200, [])
+        self.assertEqual(self.client.post('/api/v1/cases', json=INPUT).json()['id'], 1)
 
     def test_missing_and_invalid_case_id_are_stable(self):
-        self.assert_response(self.client.get('/api/cases/1'), 404,
+        self.assert_response(self.client.get('/api/v1/cases/1'), 404,
                              {'detail': 'case not found'})
         for value in ['0', '-1', 'abc', '9223372036854775808']:
+            # Malformed-path migration belongs with the T5b error-handler fix.
             self.assert_response(self.client.get('/api/cases/' + value), 422,
                                  {'detail': 'invalid case id'})
-        self.assert_response(self.client.get('/api/cases'), 200, [])
-        self.assertEqual(self.client.post('/api/cases', json=INPUT).json()['id'], 1)
+        self.assert_response(self.client.get('/api/v1/cases'), 200, [])
+        self.assertEqual(self.client.post('/api/v1/cases', json=INPUT).json()['id'], 1)
 
     def test_v1_still_rejects_versioned_envelopes_without_saving(self):
-        first = self.client.post('/api/cases', json=INPUT).json()
+        first = self.client.post('/api/v1/cases', json=INPUT).json()
         body = {'input_schema_version': '1', 'input': INPUT}
-        for route in ['/api/calculate', '/api/cases']:
+        for route in ['/api/v1/calculate', '/api/v1/cases']:
             self.assert_response(self.client.post(route, json=body), 422,
                                  {'detail': 'invalid request body'})
-            self.assert_response(self.client.get('/api/cases'), 200, [first])
-        self.assertEqual(self.client.post('/api/cases', json=INPUT).json()['id'], 2)
+            self.assert_response(self.client.get('/api/v1/cases'), 200, [first])
+        self.assertEqual(self.client.post('/api/v1/cases', json=INPUT).json()['id'], 2)
 
     def test_preserves_multisection_and_turbulent_core_behavior(self):
         for flow in [0.001, 0.03]:
             data = deepcopy(INPUT)
             data['flow_m3_s'] = flow
             data['sections'] *= 2
-            self.assert_response(self.client.post('/api/calculate', json=data),
+            self.assert_response(self.client.post('/api/v1/calculate', json=data),
                                  200, expected_result(data))
 
 

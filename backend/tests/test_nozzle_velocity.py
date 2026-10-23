@@ -10,7 +10,7 @@ from fastapi.testclient import TestClient
 from openoil.main import create_app
 
 
-ROUTE = '/api/nozzle-velocity/calculate'
+ROUTE = '/api/v1/nozzle-velocity/calculate'
 INPUT = {'flow_m3_s': 0.02, 'total_nozzle_area_m2': 0.0004}
 HYDRAULIC = {
     'sections': [{'length_m': 100, 'pipe_id_m': 0.08,
@@ -57,8 +57,7 @@ class NozzleVelocityApiTests(unittest.TestCase):
         temp = TemporaryDirectory()
         self.addCleanup(temp.cleanup)
         self.client = self.enterContext(TestClient(create_app(Path(temp.name) / 'cases.sqlite3')))
-        self.first = self.client.post('/api/cases', json=HYDRAULIC).json()
-        self.before = self.client.get('/api/v2/cases').json()
+        self.first = self.client.post('/api/v1/cases', json=HYDRAULIC).json()
 
     def assert_response(self, response, status, body):
         self.assertEqual(response.status_code, status, response.text)
@@ -73,12 +72,11 @@ class NozzleVelocityApiTests(unittest.TestCase):
         return response
 
     def assert_storage_unchanged(self):
-        self.assert_response(self.client.get('/api/cases'), 200, [self.first])
-        self.assert_response(self.client.get('/api/v2/cases'), 200, self.before)
+        self.assert_response(self.client.get('/api/v1/cases'), 200, [self.first])
 
     def assert_next_id(self):
         self.assert_storage_unchanged()
-        self.assertEqual(self.client.post('/api/cases', json=HYDRAULIC).json()['id'], 2)
+        self.assertEqual(self.client.post('/api/v1/cases', json=HYDRAULIC).json()['id'], 2)
 
     def test_documented_api_unit_equation_through_si_http_inputs(self):
         # Hand calculation: 0.95 * 296 gpm / (2.96 * 1 in²) = 95 ft/s.
@@ -140,10 +138,12 @@ class NozzleVelocityApiTests(unittest.TestCase):
 
     def test_existing_routes_reject_nozzle_shape_without_contract_changes(self):
         # All sibling POST contracts remain independent of the new shape.
-        for route in ('/api/calculate', '/api/cases', '/api/v2/calculate',
-                      '/api/v2/cases', '/api/torque-drag/calculate'):
-            body = ({'input_schema_version': '1', 'input': INPUT}
-                    if '/v2/' in route else INPUT)
+        for route, body in (
+            ('/api/v1/calculate', INPUT), ('/api/v1/cases', INPUT),
+            ('/api/v1/calculate', {'input_schema_version': '1', 'input': INPUT}),
+            ('/api/v1/cases', {'input_schema_version': '1', 'input': INPUT}),
+            ('/api/v1/torque-drag/calculate', INPUT),
+        ):
             with self.subTest(route=route):
                 self.assert_response(self.request_silently(route, json=body),
                                      422, {'detail': 'invalid request body'})
