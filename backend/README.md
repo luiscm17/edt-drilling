@@ -361,6 +361,59 @@ Tests check independent numerical values and dynamic scaling, strict rejection,
 exact public HTTP results/errors, handler silence, unchanged V1/V2 snapshots and
 ID allocation, and sibling routes' rejection of the new input shape.
 
+### Calculate-only bit/nozzle pressure-loss study
+
+`POST /api/bit-nozzle-pressure-loss/calculate` is an independent, stateless
+calculation. It does not extend hydraulic V1/V2, nozzle-velocity or torque/drag
+requests; it neither saves cases nor allocates IDs. Request and response are raw
+JSON objects without a V2 or saved-case envelope. The request requires exactly
+three positive finite JSON numbers: `density_kg_m3`, `flow_m3_s`, and
+`total_nozzle_area_m2` (the sum of effective nozzle areas, not a diameter or the
+area of one nozzle). Strings, booleans, missing/extra fields and nonfinite values
+are rejected. Schemas are exposed in OpenAPI.
+
+Example request (296 US gpm, 1 in² TFA, 10 ppg):
+
+```json
+{"density_kg_m3":1198.2642731689612,"flow_m3_s":0.0186746981344,"total_nozzle_area_m2":0.00064516}
+```
+
+The response identifies `pressure_loss` as quantity `bit_nozzle_pressure_loss`
+in Pa, model `openoil.hydraulics.documented-bit-nozzle-pressure-loss` version
+`1.0.0`, input/result schema version `1`, fixed documented `Cd = 0.95`, and
+applicability status, assumptions and limitations. The example derives
+approximately `556612.8 Pa` from the documented equations; it is not a WellPlan
+runtime result or field validation.
+
+The pure function `wellplan_hydraulics.bit_nozzle_pressure_loss.calculate`
+reuses the documented nozzle velocity relation, retaining its literal `2.96`
+coefficient and conversions from SI; it then calculates
+`ΔP = ρ v² / (2 Cd²)` in Pa. Applicability is steady incompressible single-phase
+flow with constant density and supplied effective total area. The route reports
+one contribution only; it defines no system aggregate and never labels the value
+standpipe pressure. It excludes system optimization, parasitic/tool-joint and
+surface losses, erosion, non-Newtonian, compressible, transient and multiphase
+effects. The three input quantities cannot detect the excluded operating
+conditions, so use only within the stated assumptions and independently validate
+before engineering decisions. Full precision feeds calculations; the UI may
+round to four decimals, which is not accuracy.
+
+Malformed, missing/extra, nonnumeric, nonfinite, nonpositive inputs return exact
+422 `{"detail":"invalid request body"}`. Unrepresentable derived values return
+422 `{"detail":"calculation outside finite numerical range"}`. Success and
+rejection produce no handler output, leave hydraulic snapshots unchanged and
+consume no ID. The existing hydraulic, nozzle-velocity and torque/drag routes
+retain their behavior. See the [WellPlan documentation, static REA evidence and
+SI derivation](../research/hydraulics/004-bit-nozzle-pressure-loss.md).
+
+Rebuild because tests are copied into the image, then run the focused checks:
+
+```bash
+docker compose build backend
+docker compose run --rm --no-deps backend uv run --frozen python -m unittest discover -s tests -p 'test_bit_nozzle_pressure_loss.py' -v
+docker compose run --rm --no-deps backend uv run --frozen python -m unittest discover -s tests -p 'test_api.py' -v
+```
+
 ### API and full-suite verification (Docker only)
 
 When the backend image is already provisioned, test the current checkout rather
