@@ -2,7 +2,7 @@ import {
   Bar, BarChart, CartesianGrid, Legend, Line, LineChart,
   ResponsiveContainer, Tooltip, XAxis, YAxis,
 } from 'recharts';
-import type { Snapshot } from './types';
+import type { Snapshot } from '../types';
 
 const number = (value: number, digits = 0) => value.toLocaleString('en-US', { maximumFractionDigits: digits });
 const tick = (value: number) => value.toLocaleString('en-US', { notation: 'compact' });

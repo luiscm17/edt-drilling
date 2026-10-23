@@ -1,7 +1,7 @@
 import { render, screen, within, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, it, expect, vi } from 'vitest';
-import App from './App';
+import App from '../../pages/WorkbenchPage';
 
 vi.stubGlobal('ResizeObserver', class { observe() {} unobserve() {} disconnect() {} });
 const contribution = {

@@ -1,10 +1,9 @@
 import { useEffect, useState } from 'react';
-import { Results } from './Results';
-import { TorqueDragStudy } from './TorqueDragStudy';
-import { NozzleVelocityStudy } from './NozzleVelocityStudy';
-import { BitNozzlePressureLossStudy } from './BitNozzlePressureLossStudy';
-import type { Inputs, Result, Snapshot, SavedCase, Section } from './types';
-import './styles.css';
+import { Results } from '../features/hydraulics/components/Results';
+import { TorqueDragStudy } from '../features/torque-drag/TorqueDragStudy';
+import { NozzleVelocityStudy } from '../features/nozzle-velocity/NozzleVelocityStudy';
+import { BitNozzlePressureLossStudy } from '../features/bit-nozzle-pressure-loss/BitNozzlePressureLossStudy';
+import type { Inputs, Result, Snapshot, SavedCase, Section } from '../features/hydraulics/types';
 
 const defaultSection: Section = { length_m: 100, pipe_id_m: 0.08, pipe_od_m: 0.1, hole_id_m: 0.2 };
 const initial: Inputs = {

@@ -1,7 +1,7 @@
 import { render, screen, within, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, it, expect, vi } from 'vitest';
-import App from './App';
+import App from './WorkbenchPage';
 
 // jsdom has no layout engine; charts start with their declared initial dimensions.
 vi.stubGlobal('ResizeObserver', class {
