@@ -6,8 +6,8 @@ import App from './App';
 vi.stubGlobal('ResizeObserver', class { observe() {} unobserve() {} disconnect() {} });
 function setup() {
   const fetcher = vi.fn(async (url: RequestInfo | URL) => {
-    if (url === '/api/v2/cases') return Response.json([]);
-    if (url === '/api/nozzle-velocity/calculate') return Response.json({ velocity_m_s: 37.123456 });
+    if (url === '/api/v1/cases') return Response.json([]);
+    if (url === '/api/v1/nozzle-velocity/calculate') return Response.json({ velocity_m_s: 37.123456 });
     throw new Error(`Unexpected route: ${url}`);
   });
   vi.stubGlobal('fetch', fetcher);
@@ -41,14 +41,14 @@ describe('independent nozzle velocity workspace', () => {
     const panel = await open(user);
     expect(within(panel).queryByRole('table')).not.toBeInTheDocument();
     expect(within(panel).getByText(/0.95.*2.96/)).toBeVisible();
-    expect(within(panel).getByText(/No executed WellPlan numerical parity/)).toBeVisible();
+    expect(within(panel).getByText(/No executed vendor numerical parity/)).toBeVisible();
     expect(within(panel).getByText(/documentation-fidelity choice/)).toBeVisible();
     await inputs(user); await calculate(user);
     const table = await screen.findByRole('table', { name: 'Nozzle velocity SI result' });
     expect(table).toHaveTextContent('37.1235');
     expect(table).toHaveTextContent('m/s');
     expect(fetcher.mock.calls).toEqual([
-      ['/api/v2/cases'], ['/api/nozzle-velocity/calculate', {
+      ['/api/v1/cases'], ['/api/v1/nozzle-velocity/calculate', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ flow_m3_s: 0.02, total_nozzle_area_m2: 0.0004 }),
       }],
@@ -102,6 +102,6 @@ describe('independent nozzle velocity workspace', () => {
     resolve(Response.json({ velocity_m_s: 74.246912 }));
     expect(await screen.findByRole('table', { name: 'Nozzle velocity SI result' })).toHaveTextContent('74.2469');
     expect(screen.queryByRole('alert')).not.toBeInTheDocument();
-    expect(fetcher.mock.calls.every(([url]) => ['/api/v2/cases', '/api/nozzle-velocity/calculate'].includes(String(url)))).toBe(true);
+    expect(fetcher.mock.calls.every(([url]) => ['/api/v1/cases', '/api/v1/nozzle-velocity/calculate'].includes(String(url)))).toBe(true);
   });
 });

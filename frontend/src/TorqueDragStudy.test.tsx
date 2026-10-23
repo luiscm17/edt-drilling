@@ -14,8 +14,8 @@ const result = { sections: [contribution, { ...contribution, submerged_weight_n_
   pickup_tension_n: 5000, slackoff_tension_n: 5000, rotating_torque_nm: 0 };
 function setup() {
   const fetcher = vi.fn(async (url: RequestInfo | URL) => {
-    if (url === '/api/v2/cases') return Response.json([]);
-    if (url === '/api/torque-drag/calculate') return Response.json(result);
+    if (url === '/api/v1/cases') return Response.json([]);
+    if (url === '/api/v1/torque-drag/calculate') return Response.json(result);
     throw new Error(`Unexpected route: ${url}`);
   });
   vi.stubGlobal('fetch', fetcher);
@@ -35,7 +35,7 @@ describe('calculate-only torque and drag study', () => {
     expect(studyButton).toHaveAttribute('aria-current', 'page');
     const panel = screen.getByRole('region', { name: 'Torque & drag study' });
     expect(within(panel).getByText(/no doglegs or buckling/i)).toBeVisible();
-    expect(within(panel).getByText(/no field suitability or WellPlan parity/i)).toBeVisible();
+    expect(within(panel).getByText(/no field suitability or vendor-runtime parity/i)).toBeVisible();
     await fill(user, 'Study inclination (° from vertical)', '0');
     await fill(user, 'Study density (kg/m³)', '0');
     await fill(user, 'Axial friction coefficient (dimensionless)', '0.2');
@@ -51,7 +51,7 @@ describe('calculate-only torque and drag study', () => {
     }
     await user.click(within(panel).getByRole('button', { name: 'Calculate study' }));
     expect(await within(panel).findByRole('table', { name: 'Torque and drag section contributions' })).toBeVisible();
-    expect(fetcher).toHaveBeenCalledWith('/api/torque-drag/calculate', {
+    expect(fetcher).toHaveBeenCalledWith('/api/v1/torque-drag/calculate', {
       method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({
         sections: [{ length_m: 10, pipe_od_m: 0.1, air_weight_n_m: 100 },
           { length_m: 20, pipe_od_m: 0.2, air_weight_n_m: 200 }],
@@ -73,7 +73,7 @@ describe('calculate-only torque and drag study', () => {
     }
     expect(within(panel).getByRole('status')).toHaveTextContent('Study complete. Not saved; hydraulic ledger unchanged.');
     expect(within(panel).queryByRole('button', { name: /save/i })).not.toBeInTheDocument();
-    expect(fetcher.mock.calls.filter(([url]) => url !== '/api/v2/cases')).toHaveLength(1);
+    expect(fetcher.mock.calls.filter(([url]) => url !== '/api/v1/cases')).toHaveLength(1);
     const callsBeforeNavigation = fetcher.mock.calls.length;
     await user.click(screen.getByRole('button', { name: /Hydraulics & saved cases/ }));
     expect(screen.getByText(/No saved cases/)).toBeVisible();
@@ -112,6 +112,6 @@ describe('calculate-only torque and drag study', () => {
     await calculate();
     await waitFor(() => expect(screen.queryByRole('alert')).not.toBeInTheDocument());
     expect(await screen.findByRole('table', { name: 'Torque and drag SI summary' })).toBeVisible();
-    expect(fetcher.mock.calls.every(([url]) => ['/api/v2/cases', '/api/torque-drag/calculate'].includes(String(url)))).toBe(true);
+    expect(fetcher.mock.calls.every(([url]) => ['/api/v1/cases', '/api/v1/torque-drag/calculate'].includes(String(url)))).toBe(true);
   });
 });

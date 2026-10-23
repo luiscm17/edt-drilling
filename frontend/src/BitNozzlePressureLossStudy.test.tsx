@@ -15,8 +15,8 @@ const result = {
 const labels = ['Bit/nozzle density (kg/m³)', 'Bit/nozzle flow (m³/s)', 'Bit/nozzle total flow area (m²)'];
 async function setup() {
   const fetcher = vi.fn(async (url: RequestInfo | URL) => {
-    if (url === '/api/v2/cases') return Response.json([]);
-    if (url === '/api/bit-nozzle-pressure-loss/calculate') return Response.json(result);
+    if (url === '/api/v1/cases') return Response.json([]);
+    if (url === '/api/v1/bit-nozzle-pressure-loss/calculate') return Response.json(result);
     throw new Error(`Unexpected route: ${url}`);
   });
   vi.stubGlobal('fetch', fetcher); render(<App />);
@@ -36,7 +36,7 @@ const calculate = (user: ReturnType<typeof userEvent.setup>) => user.click(scree
 describe('explicit calculate-only bit/nozzle pressure-loss study', () => {
   it('posts SI only on request, renders returned contribution/provenance and retains temporary state', async () => {
     const { user, fetcher, nav } = await setup();
-    expect(fetcher.mock.calls).toEqual([['/api/v2/cases']]);
+    expect(fetcher.mock.calls).toEqual([['/api/v1/cases']]);
     expect(screen.queryByRole('table')).not.toBeInTheDocument();
     await calculate(user);
     expect(await screen.findByRole('table', { name: 'Bit/nozzle pressure-loss SI result' })).toHaveTextContent('556,612.8');
@@ -45,7 +45,7 @@ describe('explicit calculate-only bit/nozzle pressure-loss study', () => {
     expect(screen.getByText(/Model version 1.0.0/)).toBeVisible();
     expect(screen.getByText(/^Cd = 0.95 \(dimensionless\)/)).toBeVisible();
     expect(screen.getByText(result.applicability.assumptions)).toBeVisible();
-    expect(fetcher).toHaveBeenLastCalledWith('/api/bit-nozzle-pressure-loss/calculate', {
+    expect(fetcher).toHaveBeenLastCalledWith('/api/v1/bit-nozzle-pressure-loss/calculate', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ density_kg_m3: 1198.2642731689612, flow_m3_s: 0.018675, total_nozzle_area_m2: 0.00064516 }),
     });
@@ -101,6 +101,6 @@ describe('explicit calculate-only bit/nozzle pressure-loss study', () => {
     resolve(Response.json(result));
     expect(await screen.findByRole('table')).toBeVisible();
     expect(screen.queryByRole('alert')).not.toBeInTheDocument();
-    expect(fetcher.mock.calls.every(([url]) => ['/api/v2/cases', '/api/bit-nozzle-pressure-loss/calculate'].includes(String(url)))).toBe(true);
+    expect(fetcher.mock.calls.every(([url]) => ['/api/v1/cases', '/api/v1/bit-nozzle-pressure-loss/calculate'].includes(String(url)))).toBe(true);
   });
 });

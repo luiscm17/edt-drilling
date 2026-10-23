@@ -21,11 +21,11 @@ const fluid = [
 async function request<T>(path: string, input?: Inputs): Promise<T> {
   const response = input ? await fetch(path, {
     method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({
-      input_schema_version: '1', input: { sections: input.sections.map(section => ({
+      sections: input.sections.map(section => ({
         length_m: Number(section.length_m), pipe_id_m: Number(section.pipe_id_m),
         pipe_od_m: Number(section.pipe_od_m), hole_id_m: Number(section.hole_id_m),
       })),
-      density_kg_m3: Number(input.density_kg_m3), viscosity_pa_s: Number(input.viscosity_pa_s), flow_m3_s: Number(input.flow_m3_s) },
+      density_kg_m3: Number(input.density_kg_m3), viscosity_pa_s: Number(input.viscosity_pa_s), flow_m3_s: Number(input.flow_m3_s),
     }),
   }) : await fetch(path);
   const body = await response.json().catch(() => {
@@ -46,7 +46,7 @@ export default function App() {
 
   useEffect(() => {
     let active = true;
-    request<SavedCase[]>('/api/v2/cases').then(records => { if (active) setCases(records); })
+    request<SavedCase[]>('/api/v1/cases').then(records => { if (active) setCases(records); })
       .catch(reason => { if (active) setError(reason.message); })
       .finally(() => { if (active) setBusy(''); });
     return () => { active = false; };
@@ -68,12 +68,12 @@ export default function App() {
   function calculate(save: boolean) {
     void run(save ? 'Saving case' : 'Calculating', async () => {
       if (save) {
-        const record = await request<SavedCase>('/api/v2/cases', inputs);
+        const record = await request<SavedCase>('/api/v1/cases', inputs);
         setCases(previous => [...previous, record]);
         setSnapshot(record);
         setStatus(`Saved case ${record.id}. Results are a stored snapshot.`);
       } else {
-        const calculated = await request<Snapshot>('/api/v2/calculate', inputs);
+        const calculated = await request<Snapshot>('/api/v1/calculate', inputs);
         setSnapshot(calculated); setStatus('Calculation complete. Not saved.');
       }
     });
@@ -155,11 +155,11 @@ export default function App() {
           <section className="case-library" aria-labelledby="cases-heading">
             <div className="library-heading"><h3 id="cases-heading">Case ledger</h3>
               <button type="button" disabled={!!busy} onClick={() => void run('Refreshing cases', async () => {
-                setCases(await request<SavedCase[]>('/api/v2/cases')); setStatus('Case list refreshed.');
+                setCases(await request<SavedCase[]>('/api/v1/cases')); setStatus('Case list refreshed.');
               })}>Refresh cases</button></div>
             {cases.length === 0 ? <p className="hint">No saved cases. Save a validated input to start the ledger.</p> :
               <ul>{cases.map(record => <li key={record.id}><button type="button" disabled={!!busy} onClick={() => void run(`Loading case ${record.id}`, async () => {
-                const loaded = await request<SavedCase>(`/api/v2/cases/${record.id}`);
+                const loaded = await request<SavedCase>(`/api/v1/cases/${record.id}`);
                 setInputs(loaded.input); setSnapshot(loaded);
                 setStatus(`Loaded case ${loaded.id}. Results are a stored snapshot.`);
               })}>Load case {record.id}<span>{record.input.sections.length} section(s) · {record.result.depth_m} m</span><span>{record.provenance ? `${record.provenance.model_id} · v${record.provenance.model_version}` : 'Unknown model · legacy snapshot'}</span></button></li>)}</ul>}

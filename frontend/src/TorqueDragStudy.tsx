@@ -47,7 +47,7 @@ export function TorqueDragStudy() {
   async function calculate() {
     setBusy(true); setResult(null); setError(''); setStatus('Calculating study…');
     try {
-      const response = await fetch('/api/torque-drag/calculate', {
+      const response = await fetch('/api/v1/torque-drag/calculate', {
         method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({
           sections: inputs.sections.map(section => ({ length_m: Number(section.length_m),
             pipe_od_m: Number(section.pipe_od_m), air_weight_n_m: Number(section.air_weight_n_m) })),
@@ -69,7 +69,7 @@ export function TorqueDragStudy() {
       <h2 id="study-heading">Torque & drag study</h2></div><span className="study-badge">T&D / CALCULATE ONLY</span></div>
     <aside className="scope" aria-label="Torque and drag limitations">
       <strong>One straight, uniformly inclined well/string — no doglegs or buckling.</strong>
-      Independent quasi-static weight/contact comparison; no field suitability or WellPlan parity claimed.
+      Independent quasi-static weight/contact comparison; no field suitability or vendor-runtime parity claimed.
       Constant section weight/OD, fluid density and Coulomb friction; closed-pipe buoyancy envelope and freely suspended bottom.
       No bit load, internal fluid/open-end effects, tension-dependent normal force or axial/rotation coupling.
     </aside>

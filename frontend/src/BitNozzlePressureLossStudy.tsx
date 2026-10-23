@@ -51,7 +51,7 @@ export function BitNozzlePressureLossStudy() {
     }
     setBusy(true); setStatus('Calculating bit/nozzle pressure loss…');
     try {
-      const response = await fetch('/api/bit-nozzle-pressure-loss/calculate', {
+      const response = await fetch('/api/v1/bit-nozzle-pressure-loss/calculate', {
         method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data),
       });
       const body: unknown = await response.json().catch(() => { throw new Error(`Request failed (${response.status})`); });
@@ -107,7 +107,7 @@ export function BitNozzlePressureLossStudy() {
         <div className="provenance nozzle-formula">
           <strong>Documented equations / fixed Cd = 0.95</strong>
           <p>v (ft/s) = Cd × Q (US gpm) / (2.96 × A (in²)); convert velocity to m/s, then ΔP (Pa) = ρ (kg/m³) × v² / (2 × Cd²).</p>
-          <p>The literal 2.96 is retained from installed help, not replaced by coherent-SI Q/A. Documentation and independent unit conversion are the model basis, not a WellPlan runtime-parity claim.</p>
+          <p>The literal 2.96 is retained from installed help, not replaced by coherent-SI Q/A. Documentation and independent unit conversion are the model basis, not a vendor-runtime parity claim.</p>
         </div>
         <p className="result-note">Temporary result only; no save action, aggregate, base hydraulic result or case snapshot changes.
           Display rounds to at most four decimals; small values may round to zero. Digits are not accuracy. Independently validate before engineering use.</p>

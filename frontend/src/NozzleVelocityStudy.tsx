@@ -25,7 +25,7 @@ export function NozzleVelocityStudy() {
     }
     setBusy(true); setStatus('Calculating nozzle velocity…');
     try {
-      const response = await fetch('/api/nozzle-velocity/calculate', {
+      const response = await fetch('/api/v1/nozzle-velocity/calculate', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ flow_m3_s: flow, total_nozzle_area_m2: area }),
       });
@@ -46,7 +46,7 @@ export function NozzleVelocityStudy() {
       <h2 id="nozzle-heading">Nozzle velocity study</h2></div><span className="study-badge">NOZZLE / CALCULATE ONLY</span></div>
     <aside className="scope" aria-label="Nozzle velocity limitations">
       <strong>Velocity at entered flow and area — not an operating limit or optimizer.</strong>
-      Independent implementation of an installed-help equation. No executed WellPlan numerical parity claimed.
+      Independent implementation of an installed-help equation. No executed vendor numerical parity claimed.
       No pressure-loss prediction, coupled hydraulics, erosion or transient/multiphase model. Not validated for field decisions.
     </aside>
     <div className="study-layout">

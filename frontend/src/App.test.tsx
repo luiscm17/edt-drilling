@@ -30,17 +30,28 @@ const snapshot = { input, result, provenance };
 const record = { id: 1, ...snapshot };
 function api(records: (Omit<typeof record, 'provenance'> & { provenance: typeof provenance | null })[] = []) {
   const fetcher = vi.fn(async (url: RequestInfo | URL, init?: RequestInit) => {
-    if (url === '/api/v2/cases' && !init) return Response.json(records);
-    if (url === '/api/v2/cases/1') return Response.json(records[0] ?? record);
-    if (url === '/api/v2/cases') return Response.json(record, { status: 201 });
-    if (url === '/api/v2/calculate') return Response.json(snapshot);
+    if (url === '/api/v1/cases' && !init) return Response.json(records);
+    if (url === '/api/v1/cases/1') return Response.json(records[0] ?? record);
+    if (url === '/api/v1/cases') return Response.json(record, { status: 201 });
+    if (url === '/api/v1/calculate') return Response.json(snapshot);
     throw new Error(`Unexpected route: ${url}`);
   });
   vi.stubGlobal('fetch', fetcher);
   return fetcher;
 }
 
-describe('OpenOil public V2 workbench', () => {
+describe('OpenOil public v1 workbench', () => {
+  it('uses the single v1 API prefix and sends the unwrapped calculation input', async () => {
+    const fetcher = api(); const user = userEvent.setup(); render(<App />);
+    await waitFor(() => expect(fetcher).toHaveBeenCalledWith('/api/v1/cases'));
+    fetcher.mockResolvedValueOnce(Response.json(snapshot));
+    await user.click(screen.getByRole('button', { name: 'Calculate' }));
+    await screen.findByRole('table', { name: 'Section pressure losses' });
+    expect(fetcher).toHaveBeenLastCalledWith('/api/v1/calculate', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(input),
+    });
+  });
+
   it('isolates bit/nozzle edits and rejection from retained hydraulic snapshots and legacy studies', async () => {
     const fetcher = api([record]); const user = userEvent.setup(); render(<App />);
     await user.click(await screen.findByRole('button', { name: /Load case 1/ }));
@@ -65,9 +76,9 @@ describe('OpenOil public V2 workbench', () => {
     expect(fetcher.mock.calls).toHaveLength(calls);
     fetcher.mockResolvedValueOnce(Response.json({ ...record, id: 2 }, { status: 201 }));
     await user.click(screen.getByRole('button', { name: 'Save case' }));
-    expect(fetcher).toHaveBeenLastCalledWith('/api/v2/cases', {
+    expect(fetcher).toHaveBeenLastCalledWith('/api/v1/cases', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ input_schema_version: '1', input }),
+      body: JSON.stringify(input),
     });
   });
   it('isolates nozzle edits and failures while retaining both existing studies, requests and ledger', async () => {
@@ -84,7 +95,7 @@ describe('OpenOil public V2 workbench', () => {
       pickup_tension_n: 1000, slackoff_tension_n: 1000, rotating_torque_nm: 0 }));
     await user.click(screen.getByRole('button', { name: 'Calculate study' }));
     await screen.findByRole('table', { name: 'Torque and drag SI summary' });
-    expect(fetcher).toHaveBeenLastCalledWith('/api/torque-drag/calculate', {
+    expect(fetcher).toHaveBeenLastCalledWith('/api/v1/torque-drag/calculate', {
       method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({
         sections: [{ length_m: 100, pipe_od_m: 0.1, air_weight_n_m: 300 }], inclination_deg: 30,
         density_kg_m3: 900, axial_friction_coefficient: 0.2, rotational_friction_coefficient: 0.3,
@@ -110,9 +121,9 @@ describe('OpenOil public V2 workbench', () => {
     expect(fetcher.mock.calls).toHaveLength(calls);
     await user.click(screen.getByRole('button', { name: 'Calculate' }));
     await screen.findByRole('table', { name: 'Section pressure losses' });
-    expect(fetcher).toHaveBeenLastCalledWith('/api/v2/calculate', {
+    expect(fetcher).toHaveBeenLastCalledWith('/api/v1/calculate', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ input_schema_version: '1', input }),
+      body: JSON.stringify(input),
     });
     await user.click(nozzle);
     expect(screen.getByLabelText('Nozzle flow (m³/s)')).toHaveValue(0.02);
@@ -139,7 +150,7 @@ describe('OpenOil public V2 workbench', () => {
     expect(screen.getByRole('table', { name: 'Section pressure losses' })).toHaveTextContent('1,000');
     expect(screen.getByLabelText('Density (kg/m³)')).toHaveValue(1000);
     expect(screen.getByRole('button', { name: /Load case 1/ })).toBeVisible();
-    expect(fetcher.mock.calls).toEqual([['/api/v2/cases'], ['/api/v2/cases/1']]);
+    expect(fetcher.mock.calls).toEqual([['/api/v1/cases'], ['/api/v1/cases/1']]);
   });
   it('retains hydraulic snapshots and ledger while the independent study is edited', async () => {
     const fetcher = api([record]); const user = userEvent.setup(); render(<App />);
@@ -155,15 +166,15 @@ describe('OpenOil public V2 workbench', () => {
     expect(screen.getByRole('button', { name: /Load case 1/ })).toBeVisible();
     fetcher.mockResolvedValueOnce(Response.json({ ...record, id: 2 }, { status: 201 }));
     await user.click(screen.getByRole('button', { name: 'Save case' }));
-    expect(fetcher).toHaveBeenCalledWith('/api/v2/cases', expect.objectContaining({
-      method: 'POST', body: JSON.stringify({ input_schema_version: '1', input }),
+    expect(fetcher).toHaveBeenCalledWith('/api/v1/cases', expect.objectContaining({
+      method: 'POST', body: JSON.stringify(input),
     }));
     await user.click(screen.getByRole('button', { name: /Torque & drag study/ }));
     expect(within(study).getByLabelText('Study density (kg/m³)')).toHaveValue(900);
     expect(fetcher.mock.calls.some(([url]) => String(url).includes('torque-drag'))).toBe(false);
   });
 
-  it('edits SI inputs, posts only the strict V2 envelope, and clears stale results', async () => {
+  it('edits SI inputs, posts only the direct v1 input, and clears stale results', async () => {
     const fetcher = api(); const user = userEvent.setup(); render(<App />);
     expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('OpenOil');
     expect(screen.getByRole('complementary', { name: 'Engineering scope warning' })).toHaveTextContent(/not validated for field decisions/i);
@@ -173,9 +184,9 @@ describe('OpenOil public V2 workbench', () => {
     await user.type(screen.getByLabelText('Density (kg/m³)'), '1100');
     await user.click(screen.getByRole('button', { name: 'Calculate' }));
     await screen.findByRole('table', { name: 'Section pressure losses' });
-    expect(fetcher).toHaveBeenCalledWith('/api/v2/calculate', {
+    expect(fetcher).toHaveBeenCalledWith('/api/v1/calculate', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ input_schema_version: '1', input: { ...input, density_kg_m3: 1100 } }),
+      body: JSON.stringify({ ...input, density_kg_m3: 1100 }),
     });
     expect(fetcher.mock.calls.filter(([, init]) => init)).toHaveLength(1);
     expect(screen.getByRole('table', { name: 'Pressure and density summary' })).toHaveTextContent('980,865');
@@ -209,19 +220,19 @@ describe('OpenOil public V2 workbench', () => {
     const fetcher = api(); const user = userEvent.setup(); render(<App />);
     await user.click(screen.getByRole('button', { name: 'Save case' }));
     await screen.findByRole('button', { name: /Load case 1/ });
-    expect(fetcher).toHaveBeenCalledWith('/api/v2/cases', expect.objectContaining({
-      method: 'POST', body: JSON.stringify({ input_schema_version: '1', input }),
+    expect(fetcher).toHaveBeenCalledWith('/api/v1/cases', expect.objectContaining({
+      method: 'POST', body: JSON.stringify(input),
     }));
     await user.clear(screen.getByLabelText('Density (kg/m³)'));
     await user.type(screen.getByLabelText('Density (kg/m³)'), '1200');
     await user.click(screen.getByRole('button', { name: /Load case 1/ }));
     await waitFor(() => expect(screen.getByLabelText('Density (kg/m³)')).toHaveValue(1000));
-    expect(fetcher).toHaveBeenCalledWith('/api/v2/cases/1');
+    expect(fetcher).toHaveBeenCalledWith('/api/v1/cases/1');
     expect(fetcher.mock.calls.filter(([, init]) => init)).toHaveLength(1);
     expect(screen.getByRole('table', { name: 'Section pressure losses' })).toBeVisible();
     expect(screen.getByText(/Loaded case 1. Results are a stored snapshot/)).toBeVisible();
     await user.click(screen.getByRole('button', { name: 'Refresh cases' }));
-    expect(fetcher).toHaveBeenCalledWith('/api/v2/cases');
+    expect(fetcher).toHaveBeenCalledWith('/api/v1/cases');
   });
 
   it('marks legacy provenance unknown in the ledger and loaded snapshot', async () => {
@@ -250,7 +261,7 @@ describe('OpenOil public V2 workbench', () => {
 
   it('reports network errors and allows retry', async () => {
     const fetcher = api(); const user = userEvent.setup(); render(<App />);
-    await waitFor(() => expect(fetcher).toHaveBeenCalledWith('/api/v2/cases'));
+    await waitFor(() => expect(fetcher).toHaveBeenCalledWith('/api/v1/cases'));
     fetcher.mockRejectedValueOnce(new TypeError('Failed to fetch'));
     await user.click(screen.getByRole('button', { name: 'Calculate' }));
     expect(await screen.findByRole('alert')).toHaveTextContent('Failed to fetch');
