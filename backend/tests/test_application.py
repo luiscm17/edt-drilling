@@ -5,10 +5,10 @@ from dataclasses import asdict
 import io
 import unittest
 
-from wellplan_hydraulics.application import (
+from openoil.application.hydraulics import (
     CaseInput, HydraulicsApplication, InvalidCaseId, MissingCase, UnsupportedInput,
 )
-from wellplan_hydraulics.physics import Section, calculate
+from openoil.domain.physics import Section, calculate
 
 
 def inputs(**changes):
