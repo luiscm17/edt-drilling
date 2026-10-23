@@ -10,7 +10,6 @@ from math import isfinite
 
 from openoil.domain.nozzle_velocity import calculate as nozzle_velocity
 
-
 CD = 0.95
 
 

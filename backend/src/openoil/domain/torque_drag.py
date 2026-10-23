@@ -10,12 +10,13 @@ buckling, tension-dependent contact, axial/rotation coupling, viscous drag,
 clearance, hardware or field-suitability prediction. This does not claim parity
 with any external solver or operational safety model. See research/torque-drag/boundary.md.
 """
+
+import math
 from collections.abc import Sequence
 from dataclasses import dataclass
-import math
 
 GRAVITY_M_S2 = 9.80665
-_RANGE_ERROR = 'calculation outside finite numerical range'
+_RANGE_ERROR = "calculation outside finite numerical range"
 
 
 @dataclass(frozen=True)
@@ -47,12 +48,15 @@ class Result:
 
 def _finite_input(name: str, value: float) -> None:
     try:
-        valid = (isinstance(value, (int, float)) and not isinstance(value, bool)
-                 and math.isfinite(value))
+        valid = (
+            isinstance(value, (int, float))
+            and not isinstance(value, bool)
+            and math.isfinite(value)
+        )
     except OverflowError:
         valid = False
     if not valid:
-        raise ValueError(f'{name} must be a finite number')
+        raise ValueError(f"{name} must be a finite number")
 
 
 def _finite_derived(*values: float) -> None:
@@ -60,9 +64,13 @@ def _finite_derived(*values: float) -> None:
         raise ValueError(_RANGE_ERROR)
 
 
-def calculate(sections: Sequence[Section], inclination_deg: float,
-              density_kg_m3: float, axial_friction_coefficient: float,
-              rotational_friction_coefficient: float) -> Result:
+def calculate(
+    sections: Sequence[Section],
+    inclination_deg: float,
+    density_kg_m3: float,
+    axial_friction_coefficient: float,
+    rotational_friction_coefficient: float,
+) -> Result:
     """Return immutable, dataclasses.asdict/JSON-serializable SI results.
 
     Inputs must be finite numbers (not booleans). Length, OD and air weight must
@@ -71,27 +79,31 @@ def calculate(sections: Sequence[Section], inclination_deg: float,
     positive submerged weight and nonnegative slackoff tension. Unsupported or
     unrepresentable cases raise ValueError without printing or mutating inputs.
     """
-    for name, value in [('inclination_deg', inclination_deg),
-                        ('density_kg_m3', density_kg_m3),
-                        ('axial_friction_coefficient', axial_friction_coefficient),
-                        ('rotational_friction_coefficient', rotational_friction_coefficient)]:
+    for name, value in [
+        ("inclination_deg", inclination_deg),
+        ("density_kg_m3", density_kg_m3),
+        ("axial_friction_coefficient", axial_friction_coefficient),
+        ("rotational_friction_coefficient", rotational_friction_coefficient),
+    ]:
         _finite_input(name, value)
     if not 0 <= inclination_deg < 90:
-        raise ValueError('inclination_deg must satisfy 0 <= angle < 90')
-    for name, value in [('density_kg_m3', density_kg_m3),
-                        ('axial_friction_coefficient', axial_friction_coefficient),
-                        ('rotational_friction_coefficient', rotational_friction_coefficient)]:
+        raise ValueError("inclination_deg must satisfy 0 <= angle < 90")
+    for name, value in [
+        ("density_kg_m3", density_kg_m3),
+        ("axial_friction_coefficient", axial_friction_coefficient),
+        ("rotational_friction_coefficient", rotational_friction_coefficient),
+    ]:
         if value < 0:
-            raise ValueError(f'{name} must be nonnegative')
+            raise ValueError(f"{name} must be nonnegative")
     sections = tuple(sections)
     if not sections:
-        raise ValueError('sections must not be empty')
+        raise ValueError("sections must not be empty")
     for section in sections:
-        for name in ['length_m', 'pipe_od_m', 'air_weight_n_m']:
+        for name in ["length_m", "pipe_od_m", "air_weight_n_m"]:
             value = getattr(section, name)
             _finite_input(name, value)
             if value <= 0:
-                raise ValueError(f'{name} must be positive')
+                raise ValueError(f"{name} must be positive")
 
     try:
         angle = math.radians(inclination_deg)
@@ -102,18 +114,32 @@ def calculate(sections: Sequence[Section], inclination_deg: float,
             submerged = section.air_weight_n_m - density_kg_m3 * GRAVITY_M_S2 * area
             _finite_derived(area, submerged)
             if submerged <= 0:
-                raise ValueError('submerged weight must be positive in every section')
+                raise ValueError("submerged weight must be positive in every section")
             weight = submerged * section.length_m
             gravity, normal = weight * cosine, weight * sine
             axial = axial_friction_coefficient * normal
             rotational = rotational_friction_coefficient * normal
             pickup, slackoff = gravity + axial, gravity - axial
             torque = rotational * (section.pipe_od_m / 2)
-            _finite_derived(weight, gravity, normal, axial, rotational, pickup, slackoff, torque)
+            _finite_derived(
+                weight, gravity, normal, axial, rotational, pickup, slackoff, torque
+            )
             if slackoff < 0:
-                raise ValueError('slackoff tension must be nonnegative in every section')
-            rows.append(SectionResult(submerged, gravity, normal, axial, rotational,
-                                      pickup, slackoff, torque))
+                raise ValueError(
+                    "slackoff tension must be nonnegative in every section"
+                )
+            rows.append(
+                SectionResult(
+                    submerged,
+                    gravity,
+                    normal,
+                    axial,
+                    rotational,
+                    pickup,
+                    slackoff,
+                    torque,
+                )
+            )
         pickup = sum(row.pickup_tension_n for row in rows)
         slackoff = sum(row.slackoff_tension_n for row in rows)
         torque = sum(row.rotating_torque_nm for row in rows)

@@ -5,8 +5,8 @@ from __future__ import annotations
 from dataclasses import asdict, dataclass
 
 from openoil.application.model_identity import provenance
-from openoil.domain.physics import Section, calculate
 from openoil.application.ports import CaseRepository, Snapshot
+from openoil.domain.physics import Section, calculate
 
 
 class UnsupportedInput(ValueError):
@@ -57,11 +57,11 @@ class HydraulicsApplication:
         return {key: record[key] for key in ("id", "input", "result")}
 
     def _snapshot_with_provenance(self, inputs: CaseInput) -> Snapshot:
-        return dict(
-            input=inputs.snapshot(),
-            result=self.calculate(inputs),
-            provenance=provenance(),
-        )
+        return {
+            "input": inputs.snapshot(),
+            "result": self.calculate(inputs),
+            "provenance": provenance(),
+        }
 
     def save(self, inputs: CaseInput) -> Snapshot:
         snapshot = self._snapshot_with_provenance(inputs)

@@ -4,8 +4,6 @@ from dataclasses import asdict
 
 from fastapi import APIRouter
 
-from openoil.application import studies
-from openoil.domain import torque_drag
 from openoil.adapters.inbound.http.schemas import (
     BitNozzlePressureLossInput,
     BitNozzlePressureLossResult,
@@ -15,6 +13,8 @@ from openoil.adapters.inbound.http.schemas import (
     TorqueDragInput,
     TorqueDragResult,
 )
+from openoil.application import studies
+from openoil.domain import torque_drag
 
 
 def register_routes(app, service):
