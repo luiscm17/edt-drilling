@@ -14,7 +14,7 @@ from wellplan_hydraulics.application import (
 )
 from wellplan_hydraulics.physics import Section, calculate
 from wellplan_hydraulics.storage import CaseStore
-from wellplan_hydraulics import nozzle_velocity, torque_drag
+from wellplan_hydraulics import bit_nozzle_pressure_loss, nozzle_velocity, torque_drag
 
 
 class NozzleVelocityInput(BaseModel):
@@ -26,6 +26,46 @@ class NozzleVelocityInput(BaseModel):
 class NozzleVelocityResult(BaseModel):
     model_config = ConfigDict(extra='forbid', strict=True, allow_inf_nan=False)
     velocity_m_s: float = Field(gt=0)
+
+
+class BitNozzlePressureLossInput(BaseModel):
+    model_config = ConfigDict(extra='forbid', strict=True, allow_inf_nan=False)
+    density_kg_m3: float = Field(gt=0)
+    flow_m3_s: float = Field(gt=0)
+    total_nozzle_area_m2: float = Field(gt=0)
+
+
+class BitNozzlePressureQuantity(BaseModel):
+    model_config = ConfigDict(extra='forbid', strict=True, allow_inf_nan=False)
+    quantity: Literal['bit_nozzle_pressure_loss']
+    value: float = Field(gt=0)
+    unit: Literal['Pa']
+
+
+class BitNozzleCoefficient(BaseModel):
+    model_config = ConfigDict(extra='forbid', strict=True, allow_inf_nan=False)
+    symbol: Literal['Cd']
+    value: Literal[0.95]
+    unit: Literal['1']
+    selection: Literal['fixed documented coefficient']
+
+
+class BitNozzleApplicability(BaseModel):
+    model_config = ConfigDict(extra='forbid', strict=True)
+    status: Literal['supported']
+    assumptions: str
+    limitations: str
+
+
+class BitNozzlePressureLossResult(BaseModel):
+    model_config = ConfigDict(extra='forbid', strict=True)
+    pressure_loss: BitNozzlePressureQuantity
+    model_id: Literal['openoil.hydraulics.documented-bit-nozzle-pressure-loss']
+    model_version: Literal['1.0.0']
+    input_schema_version: Literal['1']
+    result_schema_version: Literal['1']
+    coefficient: BitNozzleCoefficient
+    applicability: BitNozzleApplicability
 
 
 class SectionInput(BaseModel):
@@ -125,6 +165,13 @@ def create_app(db_path=None):
     @app.exception_handler(MissingCase)
     async def missing_case(request, error):
         return JSONResponse(status_code=404, content={'detail': str(error)})
+
+    @app.post('/api/bit-nozzle-pressure-loss/calculate', response_model=BitNozzlePressureLossResult)
+    def calculate_bit_nozzle_pressure_loss(inputs: BitNozzlePressureLossInput):
+        try:
+            return bit_nozzle_pressure_loss.calculate(**inputs.model_dump())
+        except ValueError as error:
+            raise HTTPException(status_code=422, detail=str(error)) from None
 
     @app.post('/api/nozzle-velocity/calculate', response_model=NozzleVelocityResult)
     def calculate_nozzle_velocity(inputs: NozzleVelocityInput):

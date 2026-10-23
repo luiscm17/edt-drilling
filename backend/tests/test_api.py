@@ -41,6 +41,51 @@ class ApiTests(unittest.TestCase):
         self.assertEqual(response.headers['content-type'], 'application/json')
         self.assertEqual(response.json(), body)
 
+    def test_bit_nozzle_pressure_loss_is_separate_stateless_and_validated(self):
+        data = {'density_kg_m3': 1198.2642731689612,
+                'flow_m3_s': 296 * 0.003785411784 / 60,
+                'total_nozzle_area_m2': 0.0254 ** 2}
+        route = '/api/bit-nozzle-pressure-loss/calculate'
+        record = self.client.post('/api/cases', json=INPUT).json()
+        out, err = io.StringIO(), io.StringIO()
+        with redirect_stdout(out), redirect_stderr(err):
+            response = self.client.post(route, json=data)
+        self.assertEqual(response.status_code, 200, response.text)
+        body = response.json()
+        self.assertAlmostEqual(body['pressure_loss']['value'], 556612.8, delta=2)
+        self.assertEqual(body['pressure_loss']['unit'], 'Pa')
+        self.assertEqual(body['pressure_loss']['quantity'], 'bit_nozzle_pressure_loss')
+        self.assertEqual(body['model_version'], '1.0.0')
+        self.assertEqual(body['coefficient']['value'], 0.95)
+        self.assertEqual(body['applicability']['status'], 'supported')
+        # The new payload must not acquire meaning on any existing route.
+        for old_route in ['/api/calculate', '/api/cases', '/api/v2/calculate',
+                          '/api/v2/cases', '/api/nozzle-velocity/calculate',
+                          '/api/torque-drag/calculate']:
+            self.assert_response(self.client.post(old_route, json=data), 422,
+                                 {'detail': 'invalid request body'})
+        invalid = [{}, dict(data, extra=1), dict(data, density_kg_m3=True),
+                   dict(data, flow_m3_s='1')]
+        invalid += [dict(data, **{field: value}) for field in data for value in [0, -1]]
+        for bad in invalid:
+            self.assert_response(self.client.post(route, json=bad), 422,
+                                 {'detail': 'invalid request body'})
+        for field in data:
+            for value in ['NaN', 'Infinity', '-Infinity']:
+                raw = '{' + ','.join('"' + key + '":' + (value if key == field else str(number))
+                                     for key, number in data.items()) + '}'
+                self.assert_response(self.client.post(route, content=raw,
+                                     headers={'content-type': 'application/json'}), 422,
+                                     {'detail': 'invalid request body'})
+        self.assert_response(self.client.post(route, json=dict(data, density_kg_m3=1e308)), 422,
+                             {'detail': 'calculation outside finite numerical range'})
+        self.assertEqual((out.getvalue(), err.getvalue()), ('', ''))
+        self.assert_response(self.client.get('/api/cases'), 200, [record])
+        self.assert_response(self.client.get('/api/cases/1'), 200, record)
+        self.assertEqual(self.client.post('/api/cases', json=INPUT).json()['id'], 2)
+        # The existing base calculation keeps its exact contract.
+        self.assert_response(self.client.post('/api/calculate', json=INPUT), 200, expected_result(INPUT))
+
     def test_calculate_matches_core_without_saving_or_output(self):
         original = deepcopy(INPUT)
         out, err = io.StringIO(), io.StringIO()

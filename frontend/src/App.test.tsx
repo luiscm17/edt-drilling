@@ -41,6 +41,35 @@ function api(records: (Omit<typeof record, 'provenance'> & { provenance: typeof 
 }
 
 describe('OpenOil public V2 workbench', () => {
+  it('isolates bit/nozzle edits and rejection from retained hydraulic snapshots and legacy studies', async () => {
+    const fetcher = api([record]); const user = userEvent.setup(); render(<App />);
+    await user.click(await screen.findByRole('button', { name: /Load case 1/ }));
+    await screen.findByRole('table', { name: 'Section pressure losses' });
+    await user.click(screen.getByRole('button', { name: /Bit\/nozzle pressure-loss study/ }));
+    await user.type(screen.getByLabelText('Bit/nozzle density (kg/m³)'), '1000');
+    await user.type(screen.getByLabelText('Bit/nozzle flow (m³/s)'), '0.02');
+    await user.type(screen.getByLabelText('Bit/nozzle total flow area (m²)'), '0.0004');
+    fetcher.mockResolvedValueOnce(Response.json({ detail: 'invalid request body' }, { status: 422 }));
+    await user.click(screen.getByRole('button', { name: 'Calculate bit/nozzle pressure loss' }));
+    expect(await screen.findByRole('alert')).toHaveTextContent(/^invalid request body$/);
+    const calls = fetcher.mock.calls.length;
+    await user.click(screen.getByRole('button', { name: /Nozzle velocity study/ }));
+    expect(screen.getByLabelText('Nozzle flow (m³/s)')).toHaveValue(null);
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: /Torque & drag study/ }));
+    expect(screen.getByLabelText('Study density (kg/m³)')).toHaveValue(1000);
+    await user.click(screen.getByRole('button', { name: /Hydraulics & saved cases/ }));
+    expect(screen.getByRole('table', { name: 'Section pressure losses' })).toHaveTextContent('1,000');
+    expect(screen.getByLabelText('Density (kg/m³)')).toHaveValue(1000);
+    expect(screen.getAllByRole('button', { name: /Load case/ })).toHaveLength(1);
+    expect(fetcher.mock.calls).toHaveLength(calls);
+    fetcher.mockResolvedValueOnce(Response.json({ ...record, id: 2 }, { status: 201 }));
+    await user.click(screen.getByRole('button', { name: 'Save case' }));
+    expect(fetcher).toHaveBeenLastCalledWith('/api/v2/cases', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ input_schema_version: '1', input }),
+    });
+  });
   it('isolates nozzle edits and failures while retaining both existing studies, requests and ledger', async () => {
     const fetcher = api([record]); const user = userEvent.setup(); render(<App />);
     await user.click(await screen.findByRole('button', { name: /Load case 1/ }));
