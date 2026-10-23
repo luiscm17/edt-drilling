@@ -53,35 +53,27 @@ class HydraulicsApplication:
             raise UnsupportedInput(str(error)) from None
 
     @staticmethod
-    def _v1(record: Snapshot) -> Snapshot:
+    def _public_case(record: Snapshot) -> Snapshot:
         return {key: record[key] for key in ("id", "input", "result")}
 
-    def calculate_versioned(self, inputs: CaseInput) -> Snapshot:
-        result = self.calculate(inputs)
-        return dict(input=inputs.snapshot(), result=result, provenance=provenance())
-
-    def save_versioned(self, inputs: CaseInput) -> Snapshot:
-        snapshot = self.calculate_versioned(inputs)  # Validate before port access.
-        return self.repository.save(
-            snapshot["input"], snapshot["result"], snapshot["provenance"]
+    def _snapshot_with_provenance(self, inputs: CaseInput) -> Snapshot:
+        return dict(
+            input=inputs.snapshot(),
+            result=self.calculate(inputs),
+            provenance=provenance(),
         )
 
     def save(self, inputs: CaseInput) -> Snapshot:
-        return self._v1(self.save_versioned(inputs))
+        snapshot = self._snapshot_with_provenance(inputs)
+        record = self.repository.save(
+            snapshot["input"], snapshot["result"], snapshot["provenance"]
+        )
+        return self._public_case(record)
 
     def list(self) -> list[Snapshot]:
-        return [self._v1(record) for record in self.list_versioned()]
-
-    def list_versioned(self) -> list[Snapshot]:
-        return [
-            dict(record, provenance=record.get("provenance"))
-            for record in self.repository.list()
-        ]
+        return [self._public_case(record) for record in self.repository.list()]
 
     def load(self, case_id: int) -> Snapshot:
-        return self._v1(self.load_versioned(case_id))
-
-    def load_versioned(self, case_id: int) -> Snapshot:
         if (
             not isinstance(case_id, int)
             or isinstance(case_id, bool)
@@ -91,4 +83,4 @@ class HydraulicsApplication:
         record = self.repository.get(case_id)
         if record is None:
             raise MissingCase("case not found")
-        return dict(record, provenance=record.get("provenance"))
+        return self._public_case(record)
