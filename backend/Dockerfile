@@ -10,6 +10,6 @@ RUN uv sync --frozen
 COPY backend/src ./src
 COPY backend/tests ./tests
 RUN mkdir -p /data
-ENV WELLPLAN_DB_PATH=/data/cases.sqlite3
+ENV OPENOIL_DB_PATH=/data/cases.sqlite3
 EXPOSE 8000
-CMD ["uv", "run", "--frozen", "uvicorn", "wellplan_hydraulics.api:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["uv", "run", "--frozen", "fastapi", "run", "src/openoil/main.py", "--host", "0.0.0.0", "--port", "8000"]

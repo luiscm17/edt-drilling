@@ -5,10 +5,10 @@ from dataclasses import asdict
 import io
 import unittest
 
-from wellplan_hydraulics.application import (
+from openoil.application.hydraulics import (
     CaseInput, HydraulicsApplication, InvalidCaseId, MissingCase, UnsupportedInput,
 )
-from wellplan_hydraulics.physics import Section, calculate
+from openoil.domain.physics import Section, calculate
 
 
 def inputs(**changes):
@@ -124,24 +124,25 @@ class ApplicationTests(unittest.TestCase):
         self.assertEqual(self.application.list(), [])
         self.assertEqual(self.application.save(inputs())['id'], 1)
 
-    def test_versioned_use_cases_retain_identity_and_unknown_legacy_origin(self):
-        calculated = self.application.calculate_versioned(inputs())
-        self.assertEqual(self.repository.calls, [])
-        self.assertEqual(calculated['input'], inputs().snapshot())
-        self.assertEqual(calculated['result'], self.application.calculate(inputs()))
-        self.assertEqual(calculated['provenance']['model_version'], '1.0.0')
-        saved = self.application.save_versioned(inputs())
-        self.assertEqual(saved, self.repository.records[0])
-        self.assertEqual(self.application.load_versioned(1), saved)
-        self.assertEqual(self.application.list_versioned(), [saved])
-        saved['provenance']['assumptions'].clear()
-        self.assertTrue(self.application.load_versioned(1)['provenance']['assumptions'])
-        self.repository.records[0] = dict(id=1, input={}, result={'legacy': 7})
-        self.assertEqual(self.application.load_versioned(1),
-                         dict(self.repository.records[0], provenance=None))
+    def test_public_case_use_cases_keep_provenance_internal(self):
+        data = inputs()
+        expected_input = data.snapshot()
+        expected_result = self.application.calculate(data)
+        saved = self.application.save(data)
+        self.assertEqual(saved, dict(id=1, input=expected_input, result=expected_result))
+        self.assertEqual(set(saved), {'id', 'input', 'result'})
+        self.assertEqual(self.repository.records[0]['provenance']['model_version'], '1.0.0')
+        self.assertEqual(self.repository.records[0]['provenance']['units'], 'SI')
+        self.assertEqual(self.application.load(1), saved)
+        self.assertEqual(self.application.list(), [saved])
+        saved['input']['density_kg_m3'] = -1
+        self.assertEqual(self.application.load(1)['input'], expected_input)
+        self.repository.records[0] = dict(id=1, input={}, result={'legacy': 7}, provenance=None)
+        self.assertEqual(self.application.load(1), dict(id=1, input={}, result={'legacy': 7}))
+        self.assertEqual(self.application.list(), [dict(id=1, input={}, result={'legacy': 7})])
         calls = deepcopy(self.repository.calls)
         with self.assertRaises(UnsupportedInput):
-            self.application.save_versioned(inputs(density_kg_m3=0))
+            self.application.save(inputs(density_kg_m3=0))
         self.assertEqual(self.repository.calls, calls)
         self.assertEqual(self.repository.next_id, 2)
 

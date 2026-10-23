@@ -70,8 +70,8 @@ hydraulic inputs, results and case ledger.
    contributions. Contributions are not interface loads. The wide audit table is
    keyboard-focusable for horizontal scrolling.
 
-This panel sends raw numeric JSON to `POST /api/torque-drag/calculate`, without a
-V2 envelope. It has no save action, provenance snapshot or persistent cases, and
+This panel sends raw numeric JSON to `POST /api/v1/torque-drag/calculate`, without an
+envelope. It has no save action, provenance snapshot or persistent cases, and
 never changes the hydraulic ledger. Edits, a new request or any request failure
 clear its previous result. Domain rejections appear as an alert with backend detail;
 network and non-JSON errors also permit retry. See the exact
@@ -85,8 +85,8 @@ network and non-JSON errors also permit retry. See the exact
 3. Select **Calculate bit/nozzle pressure loss** to request the separate contribution
    in **Pa**. The accessible table and provenance use only the returned API result.
 
-`POST /api/bit-nozzle-pressure-loss/calculate` accepts raw numeric SI JSON (no V2
-or saved-case envelope):
+`POST /api/v1/bit-nozzle-pressure-loss/calculate` accepts raw numeric SI JSON (no
+saved-case envelope):
 
 ```json
 {"density_kg_m3":1198.2642731689612,"flow_m3_s":0.018675,"total_nozzle_area_m2":0.00064516}
@@ -112,7 +112,7 @@ described below. The independent documented example of **296 gpm, 1 in² TFA,
 (SI example tolerance: 2 Pa). The compact JSON above rounds the example flow;
 use `296 × 0.003785411784 / 60 m³/s` for its full precision.
 See the [documentation, static REA evidence and SI derivation](research/hydraulics/004-bit-nozzle-pressure-loss.md).
-No WellPlan runtime parity or field validation is claimed.
+No vendor-runtime parity or field validation is claimed.
 
 Supported scope is steady incompressible single-phase flow with constant density
 and supplied effective nozzle area. System optimization, parasitic/tool-joint and
@@ -139,8 +139,8 @@ show zero. Precision and passing software tests do not establish engineering acc
    in **m/s**. No preloaded result or browser-side engineering calculation is used.
 
 The view sends raw numeric `{"flow_m3_s":...,"total_nozzle_area_m2":...}` to
-`POST /api/nozzle-velocity/calculate` and reads `{"velocity_m_s":...}` without a
-V2 envelope. Edits, invalid inputs, new requests and failures clear previous
+`POST /api/v1/nozzle-velocity/calculate` and reads `{"velocity_m_s":...}` without an
+envelope. Edits, invalid inputs, new requests and failures clear previous
 results. Errors are announced as alerts; status reports progress and completion.
 Retry after correction. Navigation retains temporary inputs/results/errors and
 never changes either other study or the hydraulic case ledger. There is no save
@@ -152,7 +152,7 @@ returning SI velocity. The coefficient is fixed at **0.95**. Retaining **2.96** 
 a documentation-fidelity choice: exact unit conversion implies approximately
 3.116883117, and the documented equation is about 5.30% higher than coherent-SI
 `0.95 × Q / A`. The approximation's meaning/precision is unverified. This is
-**not executed WellPlan numerical parity**, an optimizer, a maximum achievable
+**not executed vendor numerical parity**, an optimizer, a maximum achievable
 velocity, a pressure-loss prediction or a validated operating limit. It excludes
 coupled hydraulics, geometry loss modeling, erosion and transient/multiphase
 effects; hydraulics still excludes nozzle pressure loss. Four-decimal display
@@ -166,13 +166,13 @@ with Tailwind CSS v4 utilities and custom instrument styling. Every chart has a
 tabular equivalent; wide tables scroll on narrow screens. No external font service
 or decorative component library is required.
 
-For hydraulics, the browser uses `POST /api/v2/calculate`, `POST /api/v2/cases`,
-`GET /api/v2/cases` and `GET /api/v2/cases/{id}`. Both POST routes receive exactly
-`{"input_schema_version":"1","input":{...}}`, with numeric SI inputs. Results
-show the returned model identifier/version, schema versions, creation time and
-recorded assumptions. Legacy snapshots with null provenance are visibly labelled
-**Unknown model · legacy snapshot**, never attributed to the current model.
-Calculate explicitly to obtain a new result; loading never recalculates.
+The hydraulic workspace uses `POST /api/v1/calculate`, `POST /api/v1/cases`,
+`GET /api/v1/cases` and `GET /api/v1/cases/{id}`. Both POST routes accept the
+same direct numeric SI input object shown in the backend contract. Calculate
+returns the result object; save/list/load return stored `{id, input, result}`
+records. Loading preserves the saved result without recalculation. Per-case model
+provenance is retained internally for compatible storage but is not exposed by the
+public v1 API, so the UI does not infer whether an individual record has provenance.
 
 ## Model boundaries
 
@@ -200,7 +200,7 @@ bottom. Nonpositive submerged weight and negative slackoff contributions are
 rejected. There are **no doglegs, buckling/compression, bit load, internal
 fluid/open-end effects, tension-dependent normal force, axial/rotation coupling
 or viscous drag**. This is not a general torque-and-drag simulator, a field
-suitability prediction or WellPlan parity. Two-decimal display rounding is not
+suitability prediction or vendor-runtime parity. Two-decimal display rounding is not
 accuracy; small contributions may display as zero. See the
 [engineering boundary and equations](research/torque-drag/boundary.md).
 
@@ -230,8 +230,9 @@ decomposition is required.
   Cases survive restarts, rebuilds and ordinary `docker compose down`.
 - This is a trusted-local-data development setup: no authentication, pagination,
   update/delete API or defined multi-user concurrency policy. Lists return all
-  cases; keep datasets small. V2 snapshots retain model-version metadata; the
-  additive legacy migration leaves absent historical provenance unknown.
+  cases; keep datasets small. Saved model provenance remains internal and is not
+  exposed by the public v1 API; the additive migration leaves absent historical
+  provenance unknown.
   Vite is **not a production server**. Do not expose this setup to a network or
   use it to store sensitive operational data.
 

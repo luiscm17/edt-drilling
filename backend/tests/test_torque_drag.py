@@ -7,7 +7,7 @@ import math
 import re
 import unittest
 
-from wellplan_hydraulics import torque_drag as td
+from openoil.domain import torque_drag as td
 
 
 class TorqueDragTests(unittest.TestCase):

@@ -8,10 +8,10 @@ from tempfile import TemporaryDirectory
 import unittest
 
 from fastapi.testclient import TestClient
-from wellplan_hydraulics.api import create_app
+from openoil.main import create_app
 
 
-ROUTE = '/api/torque-drag/calculate'
+ROUTE = '/api/v1/torque-drag/calculate'
 INPUT = {
     'sections': [{'length_m': 10, 'pipe_od_m': 0.1, 'air_weight_n_m': 100}],
     'inclination_deg': 0, 'density_kg_m3': 0,
@@ -29,7 +29,7 @@ class TorqueDragApiTests(unittest.TestCase):
         temp = TemporaryDirectory()
         self.addCleanup(temp.cleanup)
         self.client = self.enterContext(TestClient(create_app(Path(temp.name) / 'cases.sqlite3')))
-        self.first = self.client.post('/api/cases', json=HYDRAULIC).json()
+        self.first = self.client.post('/api/v1/cases', json=HYDRAULIC).json()
 
     def assert_response(self, response, status, body):
         self.assertEqual(response.status_code, status, response.text)
@@ -37,8 +37,8 @@ class TorqueDragApiTests(unittest.TestCase):
         self.assertEqual(response.json(), body)
 
     def assert_stored_unchanged(self):
-        self.assert_response(self.client.get('/api/cases'), 200, [self.first])
-        self.assertEqual(self.client.post('/api/cases', json=HYDRAULIC).json()['id'], 2)
+        self.assert_response(self.client.get('/api/v1/cases'), 200, [self.first])
+        self.assertEqual(self.client.post('/api/v1/cases', json=HYDRAULIC).json()['id'], 2)
 
     def test_success_raw_result_is_silent_and_does_not_save_or_consume_id(self):
         # Independent vertical hand calculation: 100 N/m * 10 m; no wall contact.
@@ -92,7 +92,7 @@ class TorqueDragApiTests(unittest.TestCase):
                     self.assert_response(self.client.post(ROUTE, json=body),
                                          422, {'detail': message})
                 self.assertEqual((out.getvalue(), err.getvalue()), ('', ''))
-                self.assert_response(self.client.get('/api/cases'), 200, [self.first])
+                self.assert_response(self.client.get('/api/v1/cases'), 200, [self.first])
         raw_bodies = ['{']
         for value in ['NaN', 'Infinity', '-Infinity', '1e999']:
             raw_bodies.append(json.dumps(INPUT).replace('"inclination_deg": 0',
@@ -105,20 +105,20 @@ class TorqueDragApiTests(unittest.TestCase):
                         headers={'content-type': 'application/json'}),
                         422, {'detail': 'invalid request body'})
                 self.assertEqual((out.getvalue(), err.getvalue()), ('', ''))
-                self.assert_response(self.client.get('/api/cases'), 200, [self.first])
+                self.assert_response(self.client.get('/api/v1/cases'), 200, [self.first])
         self.assert_stored_unchanged()
 
     def test_existing_hydraulic_validation_rejects_new_shape_unchanged(self):
-        for route, body in [('/api/calculate', INPUT), ('/api/cases', INPUT),
-                            ('/api/v2/calculate', {'input_schema_version': '1', 'input': INPUT}),
-                            ('/api/v2/cases', {'input_schema_version': '1', 'input': INPUT})]:
+        for route, body in [('/api/v1/calculate', INPUT), ('/api/v1/cases', INPUT),
+                            ('/api/v1/calculate', {'input_schema_version': '1', 'input': INPUT}),
+                            ('/api/v1/cases', {'input_schema_version': '1', 'input': INPUT})]:
             with self.subTest(route=route):
                 out, err = io.StringIO(), io.StringIO()
                 with redirect_stdout(out), redirect_stderr(err):
                     self.assert_response(self.client.post(route, json=body),
                                          422, {'detail': 'invalid request body'})
                 self.assertEqual((out.getvalue(), err.getvalue()), ('', ''))
-                self.assert_response(self.client.get('/api/cases'), 200, [self.first])
+                self.assert_response(self.client.get('/api/v1/cases'), 200, [self.first])
         self.assert_stored_unchanged()
 
 
