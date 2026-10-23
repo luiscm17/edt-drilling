@@ -42,9 +42,11 @@ class CaseStoreTests(unittest.TestCase):
         transaction.__enter__.return_value = connection
         transaction.__exit__.return_value = False
 
-        with patch.object(self.store.engine, 'begin', return_value=transaction):
-            with self.assertRaisesRegex(RuntimeError, 'database returned no case ID'):
-                self.store.save({'density_kg_m3': 1000}, {'pressure_pa': 1200})
+        with (
+            patch.object(self.store.engine, 'begin', return_value=transaction),
+            self.assertRaisesRegex(RuntimeError, 'database returned no case ID'),
+        ):
+            self.store.save({'density_kg_m3': 1000}, {'pressure_pa': 1200})
 
         transaction.__exit__.assert_called_once()
         self.assertIsInstance(transaction.__exit__.call_args.args[1], RuntimeError)
