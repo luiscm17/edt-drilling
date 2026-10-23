@@ -5,7 +5,7 @@ import io
 import math
 import unittest
 
-from wellplan_hydraulics import physics as p
+from openoil.domain import physics as p
 
 
 class PhysicsTests(unittest.TestCase):

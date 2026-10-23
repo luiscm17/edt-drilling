@@ -7,7 +7,7 @@ from tempfile import TemporaryDirectory
 import unittest
 
 from fastapi.testclient import TestClient
-from wellplan_hydraulics.api import create_app
+from openoil.main import create_app
 
 
 ROUTE = '/api/nozzle-velocity/calculate'
@@ -21,7 +21,7 @@ HYDRAULIC = {
 
 class NozzleVelocityNumericalTests(unittest.TestCase):
     def test_independent_si_values_and_dynamic_scaling(self):
-        from wellplan_hydraulics.nozzle_velocity import calculate
+        from openoil.domain.nozzle_velocity import calculate
         # Literal API formula + exact conversions reduces to (2850/2849)*Q/A.
         for flow, area, expected in [(0.02, 0.0004, 142500 / 2849),
                                      (0.04, 0.0004, 285000 / 2849),
@@ -34,7 +34,7 @@ class NozzleVelocityNumericalTests(unittest.TestCase):
                 self.assertEqual((out.getvalue(), err.getvalue()), ('', ''))
 
     def test_invalid_numbers_and_unrepresentable_results_are_silently_rejected(self):
-        from wellplan_hydraulics.nozzle_velocity import calculate
+        from openoil.domain.nozzle_velocity import calculate
         for index in (0, 1):
             for value in (True, False, float('nan'), float('inf'),
                           -float('inf'), 0, -0.1, '1', None):

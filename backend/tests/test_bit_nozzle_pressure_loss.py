@@ -3,7 +3,7 @@ from contextlib import redirect_stderr, redirect_stdout
 import io
 import unittest
 
-from wellplan_hydraulics import bit_nozzle_pressure_loss, nozzle_velocity
+from openoil.domain import bit_nozzle_pressure_loss, nozzle_velocity
 
 
 EXAMPLE = dict(density_kg_m3=10 * 0.45359237 / 0.003785411784,
