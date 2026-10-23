@@ -9,11 +9,11 @@ silently extrapolated.
 
 ## Python interface and SI units
 
-Import `Section` and `calculate` from `wellplan_hydraulics.physics` with
+Import `Section` and `calculate` from `openoil.domain.physics` with
 `backend/src` on `PYTHONPATH`. The core uses only the Python standard library.
 
 ```python
-from wellplan_hydraulics.physics import Section, calculate
+from openoil.domain.physics import Section, calculate
 
 result = calculate(
     sections=[Section(length_m=100, pipe_id_m=0.08,
@@ -85,14 +85,14 @@ unchanged inputs. They establish behavior of this model, not real-well accuracy.
 
 ## Application and adapter boundaries
 
-`physics.py` remains the pure domain model and retains its existing imports.
-`application.py` owns calculate/save/list/load orchestration and accepts a
-`CaseRepository` protocol from `ports.py`; neither module depends on FastAPI,
-SQLite or filesystem APIs. `storage.py` supplies the existing structural port
-implementation, `CaseStore`. `create_app` in `api.py` is the composition edge:
-it selects the store, initializes it at startup and wires the application.
-HTTP handlers validate transport shape and translate application errors; they
-contain no persistence operations or engineering formulas.
+`openoil.domain.physics` is the pure engineering model. `openoil.application.hydraulics`
+owns calculate/save/list/load orchestration and accepts the `CaseRepository`
+protocol from `openoil.application.ports`; neither layer depends on FastAPI,
+SQLAlchemy or filesystem APIs. `openoil.adapters.outbound.case_store.CaseStore`
+implements the repository port with SQLAlchemy. `openoil.main.create_app` is the
+composition edge: it selects the store, initializes it at startup and wires the
+application. HTTP handlers validate transport shape and translate application
+errors; they contain no persistence operations or engineering formulas.
 
 For non-HTTP callers, construct `CaseInput` with an ordered tuple of `Section`
 values and the three SI fluid/flow quantities, then pass it to
@@ -104,22 +104,23 @@ return stored snapshots without recalculation. `UnsupportedInput`,
 exceptions propagate rather than becoming input errors. The existing
 `CalculationInput.result()` helper remains available for compatibility.
 
-`calculate_versioned`, `save_versioned`, `list_versioned` and `load_versioned`
-expose the provenance-bearing contract described below. Existing application
-methods preserve their original result/record shapes.
-
 ## JSON API and saved cases
 
-The FastAPI app is `wellplan_hydraulics.api:app`; `create_app(db_path)` allows
-an isolated file database. Set `WELLPLAN_DB_PATH` before startup to choose the
+The FastAPI app is `openoil.main:app`; `create_app(db_path)` allows
+an isolated file database. Set `OPENOIL_DB_PATH` before startup to choose the
 SQLite file (default `cases.sqlite3` in the working directory). Its parent
 folder must already exist and be writable. Startup creates the schema; importing
-the module alone does not open a database. Run with uv inside a provisioned
-container: `uv run --frozen uvicorn wellplan_hydraulics.api:app --host 0.0.0.0
---port 8000`, with `PYTHONPATH=/work/src`. Publish to host loopback only in the
+the module alone does not open a database. Run the FastAPI CLI inside the provisioned container:
+
+```bash
+uv run --frozen fastapi run src/openoil/main.py --host 0.0.0.0 --port 8000
+```
+
+The container sets `PYTHONPATH=/work/src`. Publish to host loopback only in the
 later Docker setup; this API has **no authentication or network security**.
 
-Both V1 hydraulic POST routes accept this exact shape (all values use the SI units above):
+Both hydraulic POST routes accept this exact shape (all values use the SI
+units above):
 
 ```json
 {
@@ -134,10 +135,10 @@ Both V1 hydraulic POST routes accept this exact shape (all values use the SI uni
 
 | Route | Success JSON |
 | --- | --- |
-| `POST /api/calculate` | 200: result object with section results and totals described above; never saves |
-| `POST /api/cases` | 201: `{"id": 1, "input": {...}, "result": {...}}`; validates and calculates before inserting |
-| `GET /api/cases` | 200: array of saved records ordered by increasing ID, initially `[]` |
-| `GET /api/cases/{id}` | 200: saved record, or 404 `{"detail":"case not found"}` |
+| `POST /api/v1/calculate` | 200: result object with section results and totals described above; never saves |
+| `POST /api/v1/cases` | 201: `{"id": 1, "input": {...}, "result": {...}}`; validates and calculates before inserting |
+| `GET /api/v1/cases` | 200: array of saved records ordered by increasing ID, initially `[]` |
+| `GET /api/v1/cases/{id}` | 200: saved record, or 404 `{"detail":"case not found"}` |
 
 IDs are positive SQLite signed 64-bit integers. Malformed/out-of-range IDs return
 422 `{"detail":"invalid case id"}`. Missing/unknown fields, wrong types, strings
@@ -156,49 +157,34 @@ transactions commit each new record atomically and close each connection.
 Filesystem/DB failures are server errors, not input-validation errors. Existing
 core applicability limits still apply; table/plot presentation belongs to the UI.
 
-### Versioned snapshots and compatibility
+### Provenance storage and snapshot compatibility
 
-V1 routes above keep their exact request/response/error contracts. V2 POST routes
-require a strict envelope: `{"input_schema_version":"1","input":{...}}`, where
-`input` is the same SI calculation input shown above. Other schema versions,
-extra fields (including client-supplied provenance), or malformed envelopes return
-422 `{"detail":"invalid request body"}`. Model selection is server-owned.
-
-| Route | Success JSON |
-| --- | --- |
-| `POST /api/v2/calculate` | 200: `{"input":{...},"result":{...},"provenance":{...}}`; no write |
-| `POST /api/v2/cases` | 201: the same snapshot plus a stable distinct `id` |
-| `GET /api/v2/cases` | 200: snapshots ordered by increasing ID |
-| `GET /api/v2/cases/{id}` | 200: stored snapshot |
-
-V2 uses the same engineering rejection messages, invalid-ID 422 and missing-case
-404 bodies as V1. Infrastructure failures remain 500 `Internal Server Error`,
-not input errors. Rejected requests neither change snapshots nor consume IDs.
-
-New saves through **either** version atomically retain provenance; V1 responses
-omit it. Provenance contains `model_id` =
-`openoil.hydraulics.newtonian-concentric-vertical`, `model_version` = `1.0.0`,
-`units` = `SI`, `input_schema_version` = `1`, `result_schema_version` = `1`
-(all version values are strings), `assumptions` (applicability, correlations and
-exclusions), and `created_at` (UTC ISO-8601 snapshot creation time). This is an independently defined OpenOil model identity, not an accuracy
-certification. Calculation timestamps are metadata, not part of deterministic
-engineering values.
+The public API has only the `/api/v1` routes listed above. Calculate returns the
+result object directly; save/list/load return only `id`, `input` and `result`.
+The v1 responses do not expose per-case provenance. Newly saved cases still retain
+model metadata internally in nullable `provenance_json`; this is an independently
+defined OpenOil model identity, not an accuracy certification. It contains
+`model_id` = `openoil.hydraulics.newtonian-concentric-vertical`, `model_version` =
+`1.0.0`, `units` = `SI`, string `input_schema_version` and
+`result_schema_version` values of `1`, applicability/correlation/exclusion
+assumptions, and `created_at` (UTC ISO-8601). Timestamps are metadata, not part of
+deterministic engineering values. The frontend does not infer per-case metadata
+that the public contract does not return.
 
 Startup performs an idempotent additive migration, adding nullable
 `provenance_json` to `cases`. Existing IDs and input/result JSON bytes are not
-rewritten; existing rows expose `provenance: null` in V2, meaning **unknown**,
-not inferred legacy model identity. The original three-column schema and migrated
-schema are both accepted at startup. Back up local databases before migration;
-no downgrade or concurrent-migration policy is offered for this local prototype.
-List/load never recalculate, including historical inputs unsupported today.
-To recalculate explicitly, submit the desired input to a calculate route; save
-again to retain a new distinct snapshot under the current model. No operation
-replaces the original result or backfills its provenance.
+rewritten; rows whose provenance was absent remain unknown internally. The
+original three-column schema and migrated schema are both accepted at startup.
+Back up local databases before migration; no downgrade or concurrent-migration
+policy is offered for this local prototype. List/load never recalculate,
+including historical inputs unsupported today. To recalculate explicitly, submit
+the desired input to `/api/v1/calculate`; save again to retain a new distinct
+snapshot. No operation replaces the original result or backfills provenance.
 
 ### Calculate-only torque and drag study
 
-`POST /api/torque-drag/calculate` is separate from hydraulic V1/V2. It uses
-`torque_drag.calculate` and never saves a case or allocates a case ID. Startup
+`POST /api/v1/torque-drag/calculate` is separate from the hydraulic case routes.
+It calls `torque_drag.calculate` and never saves a case or allocates a case ID. Startup
 still initializes the existing hydraulic database. There is no torque/drag save
 route or schema migration. Request and response are **raw JSON objects**, without
 an `input`, `result`, version or provenance envelope. All fields are required;
@@ -263,7 +249,7 @@ well/string, constant section weights/ODs, a closed-pipe buoyancy displacement
 envelope, constant fluid density and Coulomb contact, and a freely suspended
 bottom. It excludes doglegs, buckling/compression, tension-dependent normal
 force, bit load, internal fluid/open-end effects, axial/rotation coupling and
-viscous drag. It is not WellPlan parity or a field-suitability prediction.
+viscous drag. It is not vendor-runtime parity or a field-suitability prediction.
 See [the engineering boundary](../research/torque-drag/boundary.md) for equations
 and exclusions; independent engineering validation remains necessary.
 
@@ -280,8 +266,8 @@ and preservation of hydraulic validation with the new request shape.
 
 ### Calculate-only nozzle velocity
 
-`POST /api/nozzle-velocity/calculate` is an independent calculation, not an
-addition to hydraulic V1/V2 snapshots or torque/drag. It accepts only positive
+`POST /api/v1/nozzle-velocity/calculate` is independent from hydraulic
+snapshots and torque/drag. It accepts only positive
 finite JSON numbers, including integers, with no strings, booleans, null,
 missing or extra fields. Both fields are required. The total area is the sum
 of all nozzle flow areas, **not** a diameter or an individual nozzle area.
@@ -298,7 +284,7 @@ Request (flow in m³/s and total nozzle flow area in m²):
 {"velocity_m_s": 50.01755001755002}
 ```
 
-The pure Python function `wellplan_hydraulics.nozzle_velocity.calculate(flow_m3_s,
+The pure Python function `openoil.domain.nozzle_velocity.calculate(flow_m3_s,
 total_nozzle_area_m2)` implements the literal documented API-unit equation
 with exact conversions at the SI boundary:
 
@@ -320,11 +306,11 @@ function rejects invalid inputs with `ValueError`. Neither success nor rejection
 prints, saves a case, changes a hydraulic snapshot, or consumes a case ID.
 The existing app still initializes its hydraulic database at startup; the new
 handler itself has no storage dependency. There is no nozzle save route,
-migration, provenance envelope or alteration of V1/V2 or torque/drag contracts.
+migration, provenance envelope or alteration of hydraulic or torque/drag contracts.
 Request and response schemas are available in `/openapi.json` and `/docs`.
 
-**Formula provenance and unit caveat:** the installed, read-only WellPlan help
-at `C:\Landmark\EDT\WellPlan\webhelp\Topics\c_plot_noz_vel_calcs.html`
+**Formula provenance and unit caveat:** the installed, read-only engineering help
+at `C:\Landmark\EDT\vendor software\webhelp\Topics\c_plot_noz_vel_calcs.html`
 ("Nozzle Velocity Calculation", help metadata version 5000.11.0) documents
 `v_n = c_d * Q / (2.96 * A_bit)` with velocity ft/s, circulation US gpm,
 total bit area in² and `c_d = 0.95`. This independent implementation retains
@@ -338,8 +324,8 @@ has not been established by an independent runtime oracle; retaining it is a
 documentation-fidelity choice, not an accuracy certification or calibration.
 For an independent hand check, 296 US gpm through 1 in² gives exactly
 `0.95 * 296 / 2.96 = 95 ft/s`, hence `95 * 0.3048 = 28.956 m/s`.
-There is **no numerical parity claim about executed WellPlan**. Documentation
-establishes an equation, not observed WellPlan native/runtime output. No
+There is **no numerical parity claim about executed vendor software**. Documentation
+establishes an equation, not observed vendor-native/runtime output. No
 proprietary implementation or help source is copied into this project.
 
 This is velocity at the entered flow and area with a fixed coefficient, not a
@@ -358,15 +344,15 @@ docker compose run --rm --no-deps backend uv run --frozen python -m unittest dis
 ```
 
 Tests check independent numerical values and dynamic scaling, strict rejection,
-exact public HTTP results/errors, handler silence, unchanged V1/V2 snapshots and
-ID allocation, and sibling routes' rejection of the new input shape.
+exact public HTTP results/errors, handler silence, unchanged hydraulic snapshots
+and ID allocation, and sibling routes' rejection of the new input shape.
 
 ### Calculate-only bit/nozzle pressure-loss study
 
-`POST /api/bit-nozzle-pressure-loss/calculate` is an independent, stateless
-calculation. It does not extend hydraulic V1/V2, nozzle-velocity or torque/drag
-requests; it neither saves cases nor allocates IDs. Request and response are raw
-JSON objects without a V2 or saved-case envelope. The request requires exactly
+`POST /api/v1/bit-nozzle-pressure-loss/calculate` is an independent, stateless
+calculation, separate from the hydraulic case routes, nozzle-velocity and
+torque/drag requests; it neither saves cases nor allocates IDs. Request and
+response are raw JSON objects without a versioned or saved-case envelope. The request requires exactly
 three positive finite JSON numbers: `density_kg_m3`, `flow_m3_s`, and
 `total_nozzle_area_m2` (the sum of effective nozzle areas, not a diameter or the
 area of one nozzle). Strings, booleans, missing/extra fields and nonfinite values
@@ -381,11 +367,10 @@ Example request (296 US gpm, 1 in² TFA, 10 ppg):
 The response identifies `pressure_loss` as quantity `bit_nozzle_pressure_loss`
 in Pa, model `openoil.hydraulics.documented-bit-nozzle-pressure-loss` version
 `1.0.0`, input/result schema version `1`, fixed documented `Cd = 0.95`, and
-applicability status, assumptions and limitations. The example derives
-approximately `556612.8 Pa` from the documented equations; it is not a WellPlan
-runtime result or field validation.
+applicability status, assumptions and limitations. The example derives approximately `556612.8 Pa` from the documented equations;
+it is not a vendor-software runtime result or field validation.
 
-The pure function `wellplan_hydraulics.bit_nozzle_pressure_loss.calculate`
+The pure function `openoil.domain.bit_nozzle_pressure_loss.calculate`
 reuses the documented nozzle velocity relation, retaining its literal `2.96`
 coefficient and conversions from SI; it then calculates
 `ΔP = ρ v² / (2 Cd²)` in Pa. Applicability is steady incompressible single-phase
@@ -403,8 +388,8 @@ Malformed, missing/extra, nonnumeric, nonfinite, nonpositive inputs return exact
 422 `{"detail":"calculation outside finite numerical range"}`. Success and
 rejection produce no handler output, leave hydraulic snapshots unchanged and
 consume no ID. The existing hydraulic, nozzle-velocity and torque/drag routes
-retain their behavior. See the [WellPlan documentation, static REA evidence and
-SI derivation](../research/hydraulics/004-bit-nozzle-pressure-loss.md).
+retain their behavior. See the [installed engineering documentation, static REA
+evidence and SI derivation](../research/hydraulics/004-bit-nozzle-pressure-loss.md).
 
 Rebuild because tests are copied into the image, then run the focused checks:
 
@@ -424,13 +409,14 @@ container uses a `/tmp` tmpfs for test databases, with no network or host caches
 MSYS_NO_PATHCONV=1 docker run --rm --network none --read-only --tmpfs /tmp --mount "type=bind,source=D:/Documents/GitHub/edt-drilling/backend,target=/work,readonly" --workdir /work --env PYTHONPATH=/work/src --env PYTHONDONTWRITEBYTECODE=1 edt-drilling-backend:latest /opt/venv/bin/python -m unittest discover -s tests -p 'test_*.py' -v
 ```
 
-Use `-p test_application.py`, `-p test_api.py`, or `-p test_versioned_cases.py`
-for focused checks. Versioned tests start with an isolated original three-column
-SQLite fixture and check restart, migration idempotence, unchanged JSON bytes/IDs,
-unknown historical provenance, no implicit calculation, and rejection atomicity. Application
-tests use a fake port to check write ordering, ID allocation, rejection silence,
-snapshot semantics and propagation of infrastructure failures. API tests preserve
-the existing routes, JSON, validation messages, persistence and helper interface.
+Use `-p test_application.py`, `-p test_api.py`, or
+`-p test_case_schema_compatibility.py` for focused checks. Case schema tests start
+with an isolated original three-column SQLite fixture and check restart, migration
+idempotence, unchanged JSON bytes/IDs, unknown historical provenance, no implicit
+calculation, and rejection atomicity. Application tests use a fake port to check
+write ordering, ID allocation, rejection silence, snapshot semantics and
+propagation of infrastructure failures. API tests pin the `/api/v1` routes, JSON,
+validation messages, persistence and Python helper interface.
 
 
 This command provisions uv and locked dependencies only inside the disposable
