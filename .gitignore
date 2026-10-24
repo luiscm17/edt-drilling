@@ -10,3 +10,4 @@ __pycache__/
 .codegraph/
 .playwright-cli/
 .agents/
+skills-lock.json

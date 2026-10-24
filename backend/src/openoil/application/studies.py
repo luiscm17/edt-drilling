@@ -4,10 +4,20 @@ from collections.abc import Sequence
 
 from openoil.application.hydraulics import UnsupportedInput
 from openoil.domain import (
+    bingham_rheology,
     bit_nozzle_pressure_loss,
     nozzle_velocity,
     torque_drag,
 )
+
+
+def calculate_bingham_rheology(
+    readings: Sequence[bingham_rheology.FannReading],
+) -> dict:
+    try:
+        return bingham_rheology.calculate(readings)
+    except ValueError as error:
+        raise UnsupportedInput(str(error)) from None
 
 
 def calculate_bit_nozzle_pressure_loss(

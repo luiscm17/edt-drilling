@@ -219,5 +219,71 @@ class ApiTests(unittest.TestCase):
                                  200, expected_result(data))
 
 
+    def test_bingham_rheology_is_stateless_strict_and_does_not_change_sibling_routes(self):
+        route = '/api/v1/rheology/bingham/calculate'
+        data = {'readings': [{'rpm': 300, 'dial': 50}, {'rpm': 600, 'dial': 75},
+                             {'rpm': 100, 'dial': 25}]}
+        record = self.client.post('/api/v1/cases', json=INPUT).json()
+        stress_pa_per_dial = 0.01065 * 47.88025898033584
+        stdout, stderr = io.StringIO(), io.StringIO()
+        with redirect_stdout(stdout), redirect_stderr(stderr):
+            response = self.client.post(route, json=data)
+        self.assertEqual(response.status_code, 200, response.text)
+        body = response.json()
+        self.assertEqual(body['model_id'], 'openoil.rheology.fann-bingham')
+        self.assertEqual(body['model_version'], '1.0.0')
+        self.assertEqual(body['input_schema_version'], '1')
+        self.assertEqual(body['result_schema_version'], '1')
+        self.assertEqual(body['plastic_viscosity']['quantity'], 'plastic_viscosity')
+        self.assertEqual(body['plastic_viscosity']['unit'], 'Pa·s')
+        self.assertAlmostEqual(body['plastic_viscosity']['value'],
+                               25 * stress_pa_per_dial / (1.70333 * 300))
+        self.assertEqual(body['yield_point']['quantity'], 'yield_point')
+        self.assertEqual(body['yield_point']['unit'], 'Pa')
+        self.assertAlmostEqual(body['yield_point']['value'], 25 * stress_pa_per_dial)
+        self.assertEqual([point['rpm'] for point in body['readings']], [100, 300, 600])
+        self.assertEqual(body['applicability']['status'], 'supported')
+        self.assertEqual(self.client.get('/api/v1/cases').json(), [record])
+        self.assertEqual((stdout.getvalue(), stderr.getvalue()), ('', ''))
+
+        invalid = [
+            ({}, 'invalid request body'),
+            ({'readings': [{'rpm': 300, 'dial': 50}, {'rpm': 600}]}, 'invalid request body'),
+            ({'readings': [{'rpm': 300, 'dial': 50, 'extra': 1}, {'rpm': 600, 'dial': 75}]},
+             'invalid request body'),
+            ({'readings': [{'rpm': True, 'dial': 50}, {'rpm': 600, 'dial': 75}]},
+             'invalid request body'),
+            ({'readings': [{'rpm': 300, 'dial': '50'}, {'rpm': 600, 'dial': 75}]},
+             'invalid request body'),
+            ({'readings': [{'rpm': 0, 'dial': 50}, {'rpm': 600, 'dial': 75}]},
+             'invalid request body'),
+            ({'readings': [{'rpm': 300, 'dial': -1}, {'rpm': 600, 'dial': 75}]},
+             'invalid request body'),
+            ({'readings': [{'rpm': 300, 'dial': 50}, {'rpm': 300, 'dial': 60}]},
+             'rpm readings must be unique'),
+            ({'readings': [{'rpm': 300, 'dial': 50}, {'rpm': 400, 'dial': 60}]},
+             'readings must include 300 and 600 rpm'),
+            ({'readings': [{'rpm': 300, 'dial': 60}, {'rpm': 600, 'dial': 50}]},
+             'derived plastic viscosity must be nonnegative'),
+            ({'readings': [{'rpm': 300, 'dial': 30}, {'rpm': 600, 'dial': 70}]},
+             'derived yield point must be nonnegative'),
+        ]
+        for bad, detail in invalid:
+            with self.subTest(data=bad, detail=detail):
+                self.assert_response(self.client.post(route, json=bad), 422, {'detail': detail})
+                self.assertEqual(self.client.get('/api/v1/cases').json(), [record])
+        raw = '{"readings":[{"rpm":300,"dial":50},{"rpm":600,"dial":NaN}]}'
+        self.assert_response(self.client.post(route, content=raw,
+                             headers={'content-type': 'application/json'}),
+                             422, {'detail': 'invalid request body'})
+        for sibling in ['/api/v1/calculate', '/api/v1/cases',
+                        '/api/v1/nozzle-velocity/calculate', '/api/v1/torque-drag/calculate']:
+            with self.subTest(sibling=sibling):
+                self.assert_response(self.client.post(sibling, json=data), 422,
+                                     {'detail': 'invalid request body'})
+                self.assertEqual(self.client.get('/api/v1/cases').json(), [record])
+        self.assertEqual(self.client.post('/api/v1/cases', json=INPUT).json()['id'], 2)
+
+
 if __name__ == '__main__':
     unittest.main()
