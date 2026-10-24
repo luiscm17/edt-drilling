@@ -1,0 +1,9 @@
+{
+  "include": [
+    "backend/src",
+    "backend/tests"
+  ],
+  "extraPaths": [
+    "backend/src"
+  ]
+}
