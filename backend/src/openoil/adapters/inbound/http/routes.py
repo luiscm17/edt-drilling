@@ -5,6 +5,8 @@ from dataclasses import asdict
 from fastapi import APIRouter
 
 from openoil.adapters.inbound.http.schemas import (
+    BinghamFannRheologyInput,
+    BinghamFannRheologyResult,
     BitNozzlePressureLossInput,
     BitNozzlePressureLossResult,
     CalculationInput,
@@ -14,11 +16,22 @@ from openoil.adapters.inbound.http.schemas import (
     TorqueDragResult,
 )
 from openoil.application import studies
-from openoil.domain import torque_drag
+from openoil.domain import bingham_rheology, torque_drag
 
 
 def register_routes(app, service):
     router = APIRouter(prefix="/api/v1")
+
+    @router.post(
+        "/rheology/bingham/calculate",
+        response_model=BinghamFannRheologyResult,
+    )
+    def calculate_bingham_rheology(inputs: BinghamFannRheologyInput):
+        readings = [
+            bingham_rheology.FannReading(**reading.model_dump())
+            for reading in inputs.readings
+        ]
+        return studies.calculate_bingham_rheology(readings)
 
     @router.post(
         "/bit-nozzle-pressure-loss/calculate",

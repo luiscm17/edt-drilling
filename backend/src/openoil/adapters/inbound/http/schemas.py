@@ -13,6 +13,58 @@ from openoil.application.hydraulics import (
 from openoil.domain.physics import Section
 
 
+class FannReadingInput(BaseModel):
+    model_config = ConfigDict(extra="forbid", strict=True, allow_inf_nan=False)
+    rpm: float = Field(gt=0)
+    dial: float = Field(ge=0)
+
+
+class BinghamFannRheologyInput(BaseModel):
+    model_config = ConfigDict(extra="forbid", strict=True, allow_inf_nan=False)
+    readings: list[FannReadingInput] = Field(min_length=2)
+
+
+class BinghamFannReadingResult(BaseModel):
+    model_config = ConfigDict(extra="forbid", strict=True, allow_inf_nan=False)
+    rpm: float
+    dial: float = Field(ge=0)
+    shear_rate_s_inv: float = Field(gt=0)
+    shear_stress_pa: float = Field(ge=0)
+
+
+class PlasticViscosityResult(BaseModel):
+    model_config = ConfigDict(extra="forbid", strict=True, allow_inf_nan=False)
+    quantity: Literal["plastic_viscosity"]
+    value: float = Field(ge=0)
+    unit: Literal["Pa·s"]
+
+
+class YieldPointResult(BaseModel):
+    model_config = ConfigDict(extra="forbid", strict=True, allow_inf_nan=False)
+    quantity: Literal["yield_point"]
+    value: float = Field(ge=0)
+    unit: Literal["Pa"]
+
+
+class BinghamFannApplicability(BaseModel):
+    model_config = ConfigDict(extra="forbid", strict=True)
+    status: Literal["supported"]
+    assumptions: str
+    limitations: str
+
+
+class BinghamFannRheologyResult(BaseModel):
+    model_config = ConfigDict(extra="forbid", strict=True)
+    readings: list[BinghamFannReadingResult]
+    plastic_viscosity: PlasticViscosityResult
+    yield_point: YieldPointResult
+    model_id: Literal["openoil.rheology.fann-bingham"]
+    model_version: Literal["1.0.0"]
+    input_schema_version: Literal["1"]
+    result_schema_version: Literal["1"]
+    applicability: BinghamFannApplicability
+
+
 class NozzleVelocityInput(BaseModel):
     model_config = ConfigDict(extra="forbid", strict=True, allow_inf_nan=False)
     flow_m3_s: float = Field(gt=0)
