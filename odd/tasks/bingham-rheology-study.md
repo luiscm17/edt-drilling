@@ -20,7 +20,7 @@ T1 [S2,S4] Inspect published rheology/plot documentation and relevant installed 
 T2 [S1-S5] Define this bounded model, SI conversion, graph contract, branch and tracker before application source edits — route: parent; done; commit: none.
 T3 [S3-S5] Implement pure Bingham/Fann calculation, strict additive HTTP endpoint and backend tests/docs — route: parent inline; done (domain 5/5 and focused API 1/1 passed after observed RED; read-only API response and sibling-route tests; docs added; full suite remains T5); commits: `20be33b`, `ce9e011`.
 T4 [S1,S3-S5] Add accessible calculate-only study, measured/model graph and table, input/error/stale-result tests, and UI documentation — route: parent inline; done (focused frontend tests 3/3; chart, accessible data table, optional readings and stale-result handling covered; README and backend guide updated); commit: `bf7f5c3`.
-T5 [S1-S5] Run applicable full checks and browser/API smoke, reconcile ODD/Engram, assess the selected single-PR slice, and record final evidence — route: parent; blocked pending maintainer decision on a disposable same-clone worktree retry versus leaving native review unavailable; functional checks are complete; task-tracker commit pending.
+T5 [S1-S5] Run applicable full checks and browser/API smoke, reconcile ODD/Engram, assess the selected single-PR slice, and record final evidence — route: parent; blocked pending maintainer decision on a disposable same-clone worktree retry versus leaving native review unavailable; functional checks are complete; evidence tracker commit: `2241765`.
 
 ## Log
 
