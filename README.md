@@ -1,274 +1,38 @@
 # OpenOil
 
-OpenOil is a drilling-engineering workbench for exploring calculations with
-explicit assumptions, auditable section results and saved input/result snapshots.
-The hydraulic capability models steady, incompressible, single-phase Newtonian
-flow in a concentric vertical well, with saved snapshots. A separate, non-persistent
-torque-and-drag study explores quasi-static contact in a straight inclined well.
-A third independent, calculate-only nozzle study evaluates a documented velocity
-equation from editable flow and total nozzle area. A fourth, separate calculate-only
-study evaluates the documented bit/nozzle pressure-loss contribution from density,
-flow and total nozzle area; it never changes the base hydraulic result.
+OpenOil is a browser-based drilling-engineering workbench for transparent, bounded calculation studies. It pairs a React interface with a Python API and keeps engineering assumptions, units, and limitations visible instead of presenting estimates as field-validated predictions.
 
-**Not validated for field decisions or safety-critical pressure limits.** Passing
-tests and display precision do not establish engineering accuracy. Independent
-engineering validation is required before operational use.
+## Current studies
 
-## Quickstart
+- **Drilling hydraulics:** steady, single-phase Newtonian flow in a vertical well, with explicitly supported flow regimes.
+- **Bit/nozzle pressure loss:** a separate calculation contribution; it is not a complete circulating-system or standpipe-pressure result.
+- **Torque and drag:** a quasi-static straight-well weight-and-contact study, not a directional-well simulator.
 
-Docker Desktop (Linux containers) or Docker Engine with Compose is the only host
-prerequisite. The first build needs network access; Python, uv, Node and npm
-dependencies are provisioned inside Docker, not on the host.
+See the [capability roadmap](docs/gaps.md) for the reconstruction target and the [engineering reference](docs/reference/drilling-capabilities.md) for documented workflows, equations, and unknowns. The [backend guide](backend/README.md) describes the current models, API behavior, and supported domains.
 
-From the repository root:
+## Run locally
+
+Requires Docker Compose and a running Docker engine.
 
 ```bash
 docker compose up --build
 ```
 
-Open `http://127.0.0.1:5173`. Stop the foreground app with Ctrl+C.
+Open [http://127.0.0.1:5173](http://127.0.0.1:5173). Stop the services with `Ctrl+C` or `docker compose down`. Saved cases persist in the Compose `case-data` volume.
 
-### Workbench navigation
+## Engineering and security limits
 
-Select **Hydraulics & saved cases**, **Torque & drag study**,
-**Nozzle velocity study** or **Bit/nozzle pressure-loss study** in the study navigation to switch views, rather than scroll between panels. The active study
-is marked visually and for assistive technology. Use Tab to focus a study button
-and Enter or Space to select it; **Skip to inputs** targets the current study.
-On narrow screens the study selector sits above the workspace.
+OpenOil is for engineering study, not operational authorization. The implemented models are intentionally limited and have not been independently validated for field use. Do not use their results to set safety-critical pressure limits or make field decisions.
 
-Switching studies retains each study's inputs, results and errors without issuing
-calculation or save requests. Only the active study is visible and keyboard
-accessible. Selection and unsaved work are in-memory: reloading opens Hydraulics
-and resets temporary work. Use **Save case** to persist hydraulic snapshots;
-torque/drag and nozzle studies cannot be saved. There is no realtime or websocket connection.
+The local Compose setup binds the web interface to loopback, but the application does not provide authentication. Do not expose it to an untrusted network.
 
-### Hydraulics & saved cases
+## Documentation
 
-1. Edit sections in surface-to-bottom order. Lengths and diameters use **m**;
-   section length equals its vertical depth increment.
-2. Enter density (**kg/m³**), dynamic viscosity (**Pa·s**) and flow (**m³/s**).
-   The initial inputs provide a supported example.
-3. Select **Calculate** to inspect pressure/ECD totals, section audits, friction
-   bars and annular pressure/depth plots without saving. Input edits clear results.
-4. Select **Save case** to calculate and store a new snapshot. **Load case**
-   restores stored inputs/results without recalculation; **Refresh cases** reloads
-   the ledger. Each successful save creates a distinct ID.
-
-### Torque & drag study (calculate only)
-
-Select **Torque & drag study** in the study navigation to open its independent
-view. Switch back to **Hydraulics & saved cases** to return to the retained
-hydraulic inputs, results and case ledger.
-
-1. Enter sections in surface-to-bottom order: measured length (**m**), pipe OD
-   (**m**) and air weight (**N/m**). Add/remove sections without changing hydraulics.
-2. Enter one inclination from vertical (**degrees**, 0 ≤ angle < 90), fluid density
-   (**kg/m³**, nonnegative), and dimensionless nonnegative axial and rotational
-   friction coefficients. Section length, OD and air weight must be positive.
-3. Select **Calculate study** for pickup/slackoff surface tension (**N**) and
-   rotating contact torque (**N·m**), plus an ordered table of all section
-   contributions. Contributions are not interface loads. The wide audit table is
-   keyboard-focusable for horizontal scrolling.
-
-This panel sends raw numeric JSON to `POST /api/v1/torque-drag/calculate`, without an
-envelope. It has no save action, provenance snapshot or persistent cases, and
-never changes the hydraulic ledger. Edits, a new request or any request failure
-clear its previous result. Domain rejections appear as an alert with backend detail;
-network and non-JSON errors also permit retry. See the exact
-[API contract](backend/README.md#calculate-only-torque-and-drag-study).
-
-### Bit/nozzle pressure-loss study (calculate only)
-
-1. Select **Bit/nozzle pressure-loss study**. Opening it does not calculate.
-2. Enter positive finite density (**kg/m³**), flow (**m³/s**) and total effective
-   nozzle flow area (**m²**, sum of all nozzle areas, not diameter).
-3. Select **Calculate bit/nozzle pressure loss** to request the separate contribution
-   in **Pa**. The accessible table and provenance use only the returned API result.
-
-`POST /api/v1/bit-nozzle-pressure-loss/calculate` accepts raw numeric SI JSON (no
-saved-case envelope):
-
-```json
-{"density_kg_m3":1198.2642731689612,"flow_m3_s":0.018675,"total_nozzle_area_m2":0.00064516}
-```
-
-The response contains `pressure_loss: {quantity: "bit_nozzle_pressure_loss",
-value: <unrounded number>, unit: "Pa"}`, `model_id:
-"openoil.hydraulics.documented-bit-nozzle-pressure-loss"`, `model_version:
-"1.0.0"`, `input_schema_version: "1"`, `result_schema_version: "1"`,
-`coefficient: {symbol: "Cd", value: 0.95, unit: "1", selection:
-"fixed documented coefficient"}` and `applicability` with `status: "supported"`,
-`assumptions` and `limitations` text. These are temporary calculation metadata,
-not a saved snapshot. No save action, case ID or pressure aggregate is defined.
-In particular this contribution is **not standpipe pressure** and is never added
-silently to the base hydraulics response or stored cases.
-
-The backend reuses the documented nozzle velocity relation
-`v (ft/s) = Cd × Q (US gpm) / (2.96 × A (in²))`, converts velocity to m/s, and
-calculates `ΔP (Pa) = ρ (kg/m³) × v² / (2 × Cd²)`, with fixed documented
-**Cd = 0.95**. The literal **2.96** is retained, including the conversion caveat
-described below. The independent documented example of **296 gpm, 1 in² TFA,
-10 ppg** gives **95 ft/s**, approximately **80.7299 psi / 556612.8 Pa**
-(SI example tolerance: 2 Pa). The compact JSON above rounds the example flow;
-use `296 × 0.003785411784 / 60 m³/s` for its full precision.
-See the [documentation, static REA evidence and SI derivation](research/hydraulics/004-bit-nozzle-pressure-loss.md).
-No vendor-runtime parity or field validation is claimed.
-
-Supported scope is steady incompressible single-phase flow with constant density
-and supplied effective nozzle area. System optimization, parasitic/tool-joint and
-surface losses, erosion, non-Newtonian, compressible, transient and multiphase
-effects are excluded. Use only within those assumptions; the three-number input
-cannot detect fluid phase or operating conditions automatically. Nonpositive,
-non-finite, missing, extra or nonnumeric inputs return HTTP 422 with
-`{"detail":"invalid request body"}`; numerical overflow/underflow returns HTTP 422
-with `{"detail":"calculation outside finite numerical range"}`. Errors never
-create a record or consume an identifier.
-
-Input edits, new requests and failures clear previous results and their provenance.
-Controls are disabled while calculating; errors are announced as alerts and retry
-is available. Navigation retains temporary state without changing other studies
-or the case ledger. Display rounds to at most four decimals; very small values may
-show zero. Precision and passing software tests do not establish engineering accuracy.
-
-### Nozzle velocity study (calculate only)
-
-1. Select **Nozzle velocity study** to open its independent view.
-2. Enter positive finite flow (**m³/s**) and total nozzle flow area (**m²**).
-   Area means the sum of all nozzle flow areas, not a diameter or one nozzle area.
-3. Select **Calculate nozzle velocity** to display the API's returned velocity
-   in **m/s**. No preloaded result or browser-side engineering calculation is used.
-
-The view sends raw numeric `{"flow_m3_s":...,"total_nozzle_area_m2":...}` to
-`POST /api/v1/nozzle-velocity/calculate` and reads `{"velocity_m_s":...}` without an
-envelope. Edits, invalid inputs, new requests and failures clear previous
-results. Errors are announced as alerts; status reports progress and completion.
-Retry after correction. Navigation retains temporary inputs/results/errors and
-never changes either other study or the hydraulic case ledger. There is no save
-action, case ID or provenance snapshot.
-
-**Formula scope:** the backend evaluates the installed help's literal
-`v (ft/s) = 0.95 × Q (US gpm) / (2.96 × A (in²))`, converting SI inputs and
-returning SI velocity. The coefficient is fixed at **0.95**. Retaining **2.96** is
-a documentation-fidelity choice: exact unit conversion implies approximately
-3.116883117, and the documented equation is about 5.30% higher than coherent-SI
-`0.95 × Q / A`. The approximation's meaning/precision is unverified. This is
-**not executed vendor numerical parity**, an optimizer, a maximum achievable
-velocity, a pressure-loss prediction or a validated operating limit. It excludes
-coupled hydraulics, geometry loss modeling, erosion and transient/multiphase
-effects; hydraulics still excludes nozzle pressure loss. Four-decimal display
-rounding is not accuracy and very small values may display as zero. Independently
-validate before engineering use. See the [API formula, conversions and
-caveats](backend/README.md#calculate-only-nozzle-velocity).
-
-Errors appear in an alert without displaying a false result. The slate-and-amber
-engineering workspace uses Recharts for comparable friction bars and pressure traverses,
-with Tailwind CSS v4 utilities and custom instrument styling. Every chart has a
-tabular equivalent; wide tables scroll on narrow screens. No external font service
-or decorative component library is required.
-
-The hydraulic workspace uses `POST /api/v1/calculate`, `POST /api/v1/cases`,
-`GET /api/v1/cases` and `GET /api/v1/cases/{id}`. Both POST routes accept the
-same direct numeric SI input object shown in the backend contract. Calculate
-returns the result object; save/list/load return stored `{id, input, result}`
-records. Loading preserves the saved result without recalculation. Per-case model
-provenance is retained internally for compatible storage but is not exposed by the
-public v1 API, so the UI does not infer whether an individual record has provenance.
-
-## Model boundaries
-
-### Hydraulics
-
-| Topic | Supported scope |
+| Start here | What it covers |
 | --- | --- |
-| Geometry and inputs | Positive finite SI quantities; pipe ID < pipe OD < hole ID; pipe OD / hole ID ≤ 0.8; constant properties and positive flow. |
-| Regimes in both passages | Re < 2300: laminar; 4000 ≤ Re ≤ 100000: smooth-wall Blasius approximation. All other regimes are rejected. Annular turbulence uses a hydraulic-diameter approximation. |
-| Outputs | Pressure in **Pa**, ECD in **kg/m³**; bottomhole annular pressure includes hydrostatic pressure and annular friction. Surface annular gauge pressure is zero. Pipe friction is **not standpipe pressure**. |
-| Exclusions | Bit/nozzle and surface losses, roughness, eccentricity, inclination, non-Newtonian rheology, cuttings, thermal/compressibility effects, transients, swab/surge, torque/drag and real-time data. |
-
-Pressure-profile lines interpolate section-boundary values from the returned
-hydrostatic total, section lengths and cumulative returned annular losses; the UI
-contains no hydraulic model or gravity constant. Hydrostatic and circulating
-curves can overlap when friction is small. Tables and charts use the same snapshot.
-Rounding is presentation, not an accuracy guarantee.
-
-### Torque and drag
-
-The independent study assumes one straight uniformly inclined well/string,
-constant per-section air weight and OD, constant fluid density and Coulomb
-friction, a closed-pipe buoyancy displacement envelope and a freely suspended
-bottom. Nonpositive submerged weight and negative slackoff contributions are
-rejected. There are **no doglegs, buckling/compression, bit load, internal
-fluid/open-end effects, tension-dependent normal force, axial/rotation coupling
-or viscous drag**. This is not a general torque-and-drag simulator, a field
-suitability prediction or vendor-runtime parity. Two-decimal display rounding is not
-accuracy; small contributions may display as zero. See the
-[engineering boundary and equations](research/torque-drag/boundary.md).
-
-## Product and architecture
-
-- [Product requirements](docs/product/prd.md): user outcomes, scope, safety
-  boundary and capability acceptance criteria.
-- [Technical requirements](docs/architecture/trd.md): normative architecture,
-  engineering contracts, storage, security and verification requirements.
-- [EDR-001: drilling hydraulics](research/hydraulics/001-drilling-hydraulics-boundary.md)
-  and [EDR-002: torque and drag](research/hydraulics/002-torque-drag-study-boundary.md):
-  drilling-engineering models, worked examples and explicit applicability limits.
-
-The UI presents inputs and returned snapshots; authoritative engineering
-calculations remain in the backend domain. FastAPI invokes application use cases
-behind a case-repository port, implemented by SQLite. No microservice
-decomposition is required.
-
-## Local runtime and data
-
-- React/TypeScript runs on Vite, which proxies `/api` to the FastAPI backend.
-  Only **127.0.0.1:5173** is published; the API has no published host port.
-- Images use `python:3.13-slim-bookworm` and `node:24-bookworm-slim`.
-  Backend dependencies use frozen `uv.lock`; frontend dependencies use `npm ci`.
-  Source mounts are read-only; dependencies remain in image layers.
-- SQLite is stored at `/data/cases.sqlite3` in the **case-data** named volume.
-  Cases survive restarts, rebuilds and ordinary `docker compose down`.
-- This is a trusted-local-data development setup: no authentication, pagination,
-  update/delete API or defined multi-user concurrency policy. Lists return all
-  cases; keep datasets small. Saved model provenance remains internal and is not
-  exposed by the public v1 API; the additive migration leaves absent historical
-  provenance unknown.
-  Vite is **not a production server**. Do not expose this setup to a network or
-  use it to store sensitive operational data.
-
-## Container checks
-
-Run from the repository root; no host language tools are required:
-
-```bash
-docker compose build
-docker compose run --rm --no-deps frontend npm test -- --reporter=dot
-docker compose run --rm --no-deps frontend npm run build
-docker compose run --rm --no-deps backend uv run --frozen python -m unittest discover -s tests -p 'test_*.py' -v
-docker compose config --quiet
-```
-
-For dependency updates, mount only the two manifest files, never the whole
-frontend directory, into a disposable Node container. For example, from a POSIX
-shell at the repository root (Git Bash on Windows: prefix with
-`MSYS_NO_PATHCONV=1` and use `pwd -W` instead of `pwd`):
-
-```bash
-docker run --rm \
-  --mount "type=bind,source=$(pwd)/frontend/package.json,target=/app/package.json" \
-  --mount "type=bind,source=$(pwd)/frontend/package-lock.json,target=/app/package-lock.json" \
-  -w /app node:24-bookworm-slim npm install --package-lock-only --ignore-scripts --no-audit --no-fund
-docker compose build frontend
-```
-
-This writes the lockfile back but keeps npm caches and any container filesystem
-state off the host. The image then installs locked dependencies using `npm ci`.
-`npm run build` emits a production bundle inside the disposable container; it does
-not turn the Compose Vite development service into production hosting.
-
-UI tests use mocked HTTP and do not replace a real browser/API integration check.
-Backend tests cover numerical behavior, HTTP validation and snapshot persistence,
-not real-well accuracy. Test caches and build output remain in containers rather
-than host `node_modules` or `.venv`. Rebuild after changes to package manifests or
-configuration not mounted by Compose. Tests are copied into the image: run
-`docker compose build frontend` before frontend test runs after source/test edits.
+| [Product requirements](docs/product/prd.md) | Product goals and user-facing requirements. |
+| [Capability roadmap](docs/gaps.md) | Normative target workflows OpenOil is intended to reconstruct. |
+| [Engineering capability reference](docs/reference/drilling-capabilities.md) | Documented workflows, equations, unknowns, and model boundaries. |
+| [Technical requirements](docs/architecture/trd.md) | Shared architecture and implementation constraints. |
+| [Bit/nozzle design](docs/architecture/hydraulics-capability-design.md) | Technical contract for that calculation capability. |
+| [Backend guide](backend/README.md) | API, model details, persistence behavior, and backend checks. |
