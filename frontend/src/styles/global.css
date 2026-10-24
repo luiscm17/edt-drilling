@@ -103,6 +103,11 @@ footer strong { color: var(--ink); }
 .study-layout { display: grid; grid-template-columns: minmax(280px, .85fr) minmax(0, 1.55fr); gap: 2rem; }
 .study-layout > * { min-width: 0; }
 .nozzle-study { border-top-color: var(--rust); scroll-margin-top: 1rem; }
+.rheology-study { border-top-color: #52766b; scroll-margin-top: 1rem; }
+.rheology-required-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .9rem; }
+.rheology-extras { border-top: 1px solid var(--line); margin-top: 1.2rem; padding-top: .5rem; }
+.rheology-extra-row { display: grid; grid-template-columns: minmax(5rem, .7fr) minmax(8rem, 1fr) auto; align-items: end; gap: .8rem; margin: .8rem 0; }
+.rheology-extra-row .text-button { margin: 0 0 .5rem; }
 .nozzle-fields { grid-template-columns: 1fr; }
 .nozzle-formula { margin-top: 1.5rem; }
 .study-empty { background: #f1f0e8; border-left: 3px solid var(--rust); padding: 2rem 1rem; font: .8rem/1.8 "Consolas", monospace; }
@@ -127,7 +132,7 @@ footer strong { color: var(--ink); }
   h1 span { font-size: .65rem; letter-spacing: .08em; line-height: 1.6; }
   .panel { padding: 1rem; }
   .view-heading { align-items: flex-start; flex-direction: column; }
-  .field-grid { grid-template-columns: 1fr; }
+  .field-grid, .rheology-required-grid, .rheology-extra-row { grid-template-columns: 1fr; }
   .library-heading { flex-wrap: wrap; }
 }
 @media (prefers-reduced-motion: no-preference) { .panel { animation: arrive .35s ease-out; } @keyframes arrive { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } } }
