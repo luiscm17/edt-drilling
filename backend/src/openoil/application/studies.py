@@ -7,6 +7,7 @@ from openoil.domain import (
     bingham_rheology,
     bit_nozzle_pressure_loss,
     nozzle_velocity,
+    power_law_rheology,
     torque_drag,
 )
 
@@ -16,6 +17,15 @@ def calculate_bingham_rheology(
 ) -> dict:
     try:
         return bingham_rheology.calculate(readings)
+    except ValueError as error:
+        raise UnsupportedInput(str(error)) from None
+
+
+def calculate_power_law_rheology(
+    readings: Sequence[power_law_rheology.FannReading],
+) -> dict:
+    try:
+        return power_law_rheology.calculate(readings)
     except ValueError as error:
         raise UnsupportedInput(str(error)) from None
 

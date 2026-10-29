@@ -400,6 +400,19 @@ docker compose run --rm --no-deps backend uv run --frozen python -m unittest dis
 docker compose run --rm --no-deps backend uv run --frozen python -m unittest discover -s tests -p 'test_api.py' -v
 ```
 
+### Calculate-only Power Law rheology study
+
+`POST /api/v1/rheology/power-law/calculate` accepts `{"readings":[{"rpm":300,"dial":50},{"rpm":600,"dial":75}]}`. It returns transformed observations in SI, a model curve at entered RPM values, dimensionless `flow_behavior_index` (n), `consistency_index` (K) in Pa·s^n, model/schema versions and applicability limits. For this example n is approximately `0.5849625007` and K is `0.6639753206 Pa·s^n` (independent arithmetic, not an observed reference-software output). The curve uses `τ = K γ^n`, with γ in s⁻¹ and τ in Pa. The [engineering boundary](../research/rheology/power-law-boundary.md) records the installed help equations, SI interpretation, static REA limits and validation cases.
+
+The 300/600 RPM dials must be finite, strictly positive and increasing; all RPMs must be unique positive finite numbers, and optional dial readings may be zero but not negative. Additional readings are observations, not a regression. Malformed JSON, unknown fields, strings, booleans, nonfinite inputs and missing readings return 422 `{"detail":"invalid request body"}`. Invalid model-domain input returns 422 with the explicit validation message. Unrepresentable outputs are rejected. This is a separate calculate-only study: it does not persist, consume case IDs, run hydraulic calculations, or claim runtime parity or field validity. The UI presents the SI curve and measured points with an accessible table.
+
+Focused checks from `backend/` with `backend/src` on `PYTHONPATH`:
+
+```bash
+python -m unittest discover -s tests -p 'test_power_law_rheology.py' -v
+python -m unittest discover -s tests -p 'test_api.py' -k power_law -v
+```
+
 ### Calculate-only Bingham rheology study
 
 `POST /api/v1/rheology/bingham/calculate` accepts a raw JSON object and returns a

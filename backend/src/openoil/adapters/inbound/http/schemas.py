@@ -65,6 +65,40 @@ class BinghamFannRheologyResult(BaseModel):
     applicability: BinghamFannApplicability
 
 
+class PowerLawCurvePoint(BaseModel):
+    model_config = ConfigDict(extra="forbid", strict=True, allow_inf_nan=False)
+    rpm: float = Field(gt=0)
+    shear_rate_s_inv: float = Field(gt=0)
+    shear_stress_pa: float = Field(gt=0)
+
+
+class FlowBehaviorIndex(BaseModel):
+    model_config = ConfigDict(extra="forbid", strict=True, allow_inf_nan=False)
+    quantity: Literal["flow_behavior_index"]
+    value: float = Field(gt=0)
+    unit: Literal["1"]
+
+
+class ConsistencyIndex(BaseModel):
+    model_config = ConfigDict(extra="forbid", strict=True, allow_inf_nan=False)
+    quantity: Literal["consistency_index"]
+    value: float = Field(gt=0)
+    unit: Literal["Pa·s^n"]
+
+
+class PowerLawRheologyResult(BaseModel):
+    model_config = ConfigDict(extra="forbid", strict=True)
+    readings: list[BinghamFannReadingResult]
+    model_curve: list[PowerLawCurvePoint]
+    flow_behavior_index: FlowBehaviorIndex
+    consistency_index: ConsistencyIndex
+    model_id: Literal["openoil.rheology.fann-power-law"]
+    model_version: Literal["1.0.0"]
+    input_schema_version: Literal["1"]
+    result_schema_version: Literal["1"]
+    applicability: BinghamFannApplicability
+
+
 class NozzleVelocityInput(BaseModel):
     model_config = ConfigDict(extra="forbid", strict=True, allow_inf_nan=False)
     flow_m3_s: float = Field(gt=0)
