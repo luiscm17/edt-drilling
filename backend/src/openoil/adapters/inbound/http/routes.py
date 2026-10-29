@@ -12,11 +12,12 @@ from openoil.adapters.inbound.http.schemas import (
     CalculationInput,
     NozzleVelocityInput,
     NozzleVelocityResult,
+    PowerLawRheologyResult,
     TorqueDragInput,
     TorqueDragResult,
 )
 from openoil.application import studies
-from openoil.domain import bingham_rheology, torque_drag
+from openoil.domain import bingham_rheology, power_law_rheology, torque_drag
 
 
 def register_routes(app, service):
@@ -32,6 +33,17 @@ def register_routes(app, service):
             for reading in inputs.readings
         ]
         return studies.calculate_bingham_rheology(readings)
+
+    @router.post(
+        "/rheology/power-law/calculate",
+        response_model=PowerLawRheologyResult,
+    )
+    def calculate_power_law_rheology(inputs: BinghamFannRheologyInput):
+        readings = [
+            power_law_rheology.FannReading(**reading.model_dump())
+            for reading in inputs.readings
+        ]
+        return studies.calculate_power_law_rheology(readings)
 
     @router.post(
         "/bit-nozzle-pressure-loss/calculate",

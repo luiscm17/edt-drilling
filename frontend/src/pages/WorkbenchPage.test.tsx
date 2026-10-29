@@ -35,6 +35,23 @@ function api(records: typeof record[] = []) {
 }
 
 describe('OpenOil public v1 workbench', () => {
+  it('keeps existing studies and saved cases intact when navigating through Power Law', async () => {
+    const fetcher = api([record]); const user = userEvent.setup(); render(<App />);
+    await user.click(await screen.findByRole('button', { name: /Load case 1/ }));
+    await screen.findByRole('table', { name: 'Section pressure losses' });
+    await user.click(screen.getByRole('button', { name: /Power Law rheology study/ }));
+    const power = within(document.getElementById('power-law-rheology')!);
+    await user.type(power.getByLabelText('300 rpm dial reading'), '50');
+    await user.click(screen.getByRole('button', { name: /Bingham rheology study/ }));
+    expect(screen.getByRole('heading', { name: 'Bingham rheology study' })).toBeVisible();
+    await user.click(screen.getByRole('button', { name: /Hydraulics & saved cases/ }));
+    expect(screen.getByRole('table', { name: 'Section pressure losses' })).toHaveTextContent('1,000');
+    expect(screen.getByRole('button', { name: /Load case 1/ })).toBeVisible();
+    await user.click(screen.getByRole('button', { name: /Power Law rheology study/ }));
+    expect(power.getByLabelText('300 rpm dial reading')).toHaveValue(50);
+    expect(fetcher.mock.calls.map(([url]) => url)).toEqual(['/api/v1/cases', '/api/v1/cases/1']);
+  });
+
   it('uses the single v1 API prefix and sends the unwrapped calculation input', async () => {
     const fetcher = api(); const user = userEvent.setup(); render(<App />);
     await waitFor(() => expect(fetcher).toHaveBeenCalledWith('/api/v1/cases'));

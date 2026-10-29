@@ -219,6 +219,55 @@ class ApiTests(unittest.TestCase):
                                  200, expected_result(data))
 
 
+    def test_power_law_study_is_strict_stateless_and_isolated_from_existing_routes(self):
+        route = '/api/v1/rheology/power-law/calculate'
+        data = {'readings': [{'rpm': 300, 'dial': 50}, {'rpm': 600, 'dial': 75},
+                             {'rpm': 100, 'dial': 20}]}
+        record = self.client.post('/api/v1/cases', json=INPUT).json()
+        out, err = io.StringIO(), io.StringIO()
+        with redirect_stdout(out), redirect_stderr(err):
+            response = self.client.post(route, json=data)
+        self.assertEqual(response.status_code, 200, response.text)
+        result = response.json()
+        self.assertEqual(set(result), {'readings', 'model_curve', 'flow_behavior_index',
+                                       'consistency_index', 'model_id', 'model_version',
+                                       'input_schema_version', 'result_schema_version',
+                                       'applicability'})
+        self.assertEqual(result['model_id'], 'openoil.rheology.fann-power-law')
+        self.assertAlmostEqual(result['flow_behavior_index']['value'], 0.5849625007211562)
+        self.assertAlmostEqual(result['consistency_index']['value'], 0.6639753206166239)
+        self.assertEqual(result['consistency_index']['unit'], 'Pa·s^n')
+        self.assertEqual((out.getvalue(), err.getvalue()), ('', ''))
+        zero_observation = {'readings': [*data['readings'][:2], {'rpm': 100, 'dial': 0}]}
+        zero_result = self.client.post(route, json=zero_observation)
+        self.assertEqual(zero_result.status_code, 200, zero_result.text)
+        self.assertEqual(zero_result.json()['readings'][0]['shear_stress_pa'], 0)
+        self.assertGreater(zero_result.json()['model_curve'][0]['shear_stress_pa'], 0)
+        self.assertAlmostEqual(zero_result.json()['flow_behavior_index']['value'],
+                               result['flow_behavior_index']['value'])
+        for old_route in ['/api/v1/calculate', '/api/v1/cases',
+                          '/api/v1/bit-nozzle-pressure-loss/calculate']:
+            self.assert_response(self.client.post(old_route, json=data), 422,
+                                 {'detail': 'invalid request body'})
+        bingham = self.client.post('/api/v1/rheology/bingham/calculate', json=data)
+        self.assertEqual(bingham.status_code, 200, bingham.text)
+        self.assertEqual(bingham.json()['model_id'], 'openoil.rheology.fann-bingham')
+        for invalid, expected in [
+            ({}, 'invalid request body'),
+            (dict(data, unknown=1), 'invalid request body'),
+            ({'readings': [{'rpm': 300, 'dial': True}, {'rpm': 600, 'dial': 75}]}, 'invalid request body'),
+            ({'readings': [{'rpm': 300, 'dial': 0}, {'rpm': 600, 'dial': 75}]},
+             '300 and 600 rpm dials must be positive'),
+            ({'readings': [{'rpm': 300, 'dial': 50}, {'rpm': 600, 'dial': 50}]},
+             '600 rpm dial must exceed 300 rpm dial'),
+        ]:
+            with self.subTest(invalid=invalid):
+                self.assert_response(self.client.post(route, json=invalid), 422,
+                                     {'detail': expected})
+                self.assert_response(self.client.get('/api/v1/cases'), 200, [record])
+        self.assert_response(self.client.get('/api/v1/cases'), 200, [record])
+        self.assertEqual(self.client.post('/api/v1/cases', json=INPUT).json()['id'], 2)
+
     def test_bingham_rheology_is_stateless_strict_and_does_not_change_sibling_routes(self):
         route = '/api/v1/rheology/bingham/calculate'
         data = {'readings': [{'rpm': 300, 'dial': 50}, {'rpm': 600, 'dial': 75},
