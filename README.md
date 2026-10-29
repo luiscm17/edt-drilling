@@ -6,6 +6,7 @@ OpenOil is a browser-based drilling-engineering workbench for transparent, bound
 
 - **Drilling hydraulics:** steady, single-phase Newtonian flow in a vertical well, with explicitly supported flow regimes.
 - **Bit/nozzle pressure loss:** a separate calculation contribution; it is not a complete circulating-system or standpipe-pressure result.
+- **Hydraulic power from supplied pressure loss:** an independent, calculate-only pipe-or-annulus power result from explicit rate and passage loss; not bit/nozzle power, loss prediction or optimization.
 - **Torque and drag:** a quasi-static straight-well weight-and-contact study, not a directional-well simulator.
 - **Newtonian rheology:** derive dynamic viscosity from positive RPM/nonnegative Fann dial under zero yield stress and constant viscosity; inconsistent multi-reading ratios are rejected. Standalone, no hydraulic coupling, vendor parity or field validation. See [the boundary](research/rheology/newtonian-boundary.md).
 - **Bingham rheology:** standalone plastic-viscosity/yield-point derivation from 300/600 RPM readings, with an SI shear curve; not a full rheology or hydraulics model.

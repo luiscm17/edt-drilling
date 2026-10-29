@@ -348,6 +348,28 @@ Tests check independent numerical values and dynamic scaling, strict rejection,
 exact public HTTP results/errors, handler silence, unchanged hydraulic snapshots
 and ID allocation, and sibling routes' rejection of the new input shape.
 
+### Calculate-only hydraulic power from supplied passage loss
+
+`POST /api/v1/bit-hydraulic-power/calculate` accepts only positive finite SI
+`flow_m3_s`, positive finite `pressure_loss_pa`, and `pressure_boundary` equal
+to `"pipe"` or `"annulus"`. Example:
+
+```json
+{"flow_m3_s":0.0000630901964,"pressure_loss_pa":6894.757293168,"pressure_boundary":"pipe"}
+```
+
+It converts SI to US gpm and psi before applying the documented
+`Q[gpm] * P_loss[psi] / 1714` hp relation. The example returns approximately
+`0.0005834305718 hp`. The versioned result includes `power` with unit `hp`,
+the selected passage, model identity, and limits. The **supplied** pressure loss
+is neither calculated nor replaced with bit/nozzle loss. No coupling to the
+hydraulic ledger, standpipe pressure, optimization, vendor parity, or field
+validation is implied. Missing/extra fields, nonpositive inputs and invalid
+passage return HTTP 422 `{"detail":"invalid request body"}`; nonrepresentable
+results return 422 `{"detail":"calculation outside finite numerical range"}`.
+The route is stateless and never saves cases. Run its public API checks with
+`PYTHONPATH=src uv run python -m unittest discover -s tests -p 'test_bit_hydraulic_power_api.py' -q`.
+
 ### Calculate-only bit/nozzle pressure-loss study
 
 `POST /api/v1/bit-nozzle-pressure-loss/calculate` is an independent, stateless

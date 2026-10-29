@@ -6,6 +6,7 @@ from openoil.application.hydraulics import UnsupportedInput
 from openoil.domain import (
     bingham_rheology,
     bit_nozzle_pressure_loss,
+    bit_hydraulic_power,
     generalized_hb_rheology,
     gel_break_pressure,
     herschel_bulkley_rheology,
@@ -70,6 +71,13 @@ def calculate_power_law_rheology(
 ) -> dict:
     try:
         return power_law_rheology.calculate(readings)
+    except ValueError as error:
+        raise UnsupportedInput(str(error)) from None
+
+
+def calculate_bit_hydraulic_power(flow_m3_s: float, pressure_loss_pa: float, pressure_boundary: str) -> dict:
+    try:
+        return bit_hydraulic_power.calculate(flow_m3_s, pressure_loss_pa, pressure_boundary)
     except ValueError as error:
         raise UnsupportedInput(str(error)) from None
 
