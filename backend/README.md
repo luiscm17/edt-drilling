@@ -430,6 +430,55 @@ python -m unittest discover -s tests -p 'test_herschel_bulkley_rheology.py' -v
 python -m unittest discover -s tests -p 'test_api.py' -k herschel_bulkley -v
 ```
 
+### Calculate-only conventional HB multi-reading fit
+
+`POST /api/v1/rheology/herschel-bulkley-fit/calculate` is separate from the
+unchanged `/rheology/herschel-bulkley/calculate` supplied-parameter route.
+The new route accepts only `{"readings":[{"rpm":1,"dial":5},{"rpm":4,"dial":8},{"rpm":9,"dial":11}]}`:
+3–1000 distinct positive finite RPM readings and nonnegative finite dial values.
+It uses all readings, not only 300/600 RPM. No strings, booleans, null, unknown
+fields or nonfinite values are accepted. OpenAPI describes the strict schemas.
+
+The model `openoil.rheology.fann-herschel-bulkley-fit` version `1.0.0` (input and
+result schema `1`) returns `parameters` (yield stress Pa, consistency Pa·s^n,
+flow index dimensionless), sorted `points` with RPM, dial, `shear_rate_s_inv`,
+measured `shear_stress_pa`, `predicted_stress_pa` and `residual_pa` (predicted
+minus measured), `diagnostics`, and applicability limits. Diagnostics include
+SSE Pa², RMSE Pa, maximum absolute residual Pa, grid bounds/step, 391 profile
+evaluations, `at_n_bound`, and near-optimal exponent span/count with an explicit
+non-uniqueness warning. No extrapolated curve is supplied.
+
+The standard-library solver minimizes unweighted stress SSE with nonnegative
+τ₀/K over `n=0.05,0.055,…,2` (step 0.005), using exact constrained linear
+least squares at each n. Success means the finite search completed, **not**
+continuous convergence, unique parameters or statistical accuracy. Near-optimal
+means normalized MSE ≤ minimum + 10⁻⁶, not a confidence interval. Constant,
+zero, insufficiently separated or zero-consistency data are rejected; physical
+residual overflow is rejected too. Shape errors return 422
+`{"detail":"invalid request body"}`; domain errors return 422 with the exact
+`ValueError` message (e.g. `rpm readings must be unique` or
+`degenerate readings: insufficient stress variation`). Neither success nor
+rejection prints, saves, changes existing cases or consumes IDs.
+
+See [the independent numerical contract](../research/rheology/herschel-bulkley-fit-boundary.md)
+for the full objective, bounds, tie policy, degeneracy cutoffs, complete-search
+policy and hand-checkable example: shear rates `[1,4,9]`, stresses `[5,8,11]`
+recover τ₀=2, K=3, n=0.5 with zero residual to roundoff. Convert those SI values
+to RPM/dial as documented there; the simple raw RPM/dial request above is not
+that same SI example. The accessible UI exposes all points and diagnostics,
+invalidates stale results and disables edits during fitting. There is no
+WellPlan/vendor parity, generalized-HB fitting, hydraulic coupling or field
+validation; small residuals do not validate a fluid model.
+
+Focused checks from `backend/`, with `src` on `PYTHONPATH` and bytecode disabled:
+
+```bash
+.venv/Scripts/python.exe -m unittest discover -s tests -p test_herschel_bulkley_fit.py -v
+.venv/Scripts/python.exe -m unittest discover -s tests -p test_api.py -k hb_fit -v
+```
+
+From `frontend/`: `npm test -- --run src/features/rheology/HerschelBulkleyFitStudy.test.tsx src/pages/WorkbenchPage.test.tsx --no-cache`.
+
 ### Calculate-only Power Law rheology study
 
 `POST /api/v1/rheology/power-law/calculate` accepts `{"readings":[{"rpm":300,"dial":50},{"rpm":600,"dial":75}]}`. It returns transformed observations in SI, a model curve at entered RPM values, dimensionless `flow_behavior_index` (n), `consistency_index` (K) in Pa·s^n, model/schema versions and applicability limits. For this example n is approximately `0.5849625007` and K is `0.6639753206 Pa·s^n` (independent arithmetic, not an observed reference-software output). The curve uses `τ = K γ^n`, with γ in s⁻¹ and τ in Pa. The [engineering boundary](../research/rheology/power-law-boundary.md) records the installed help equations, SI interpretation, static REA limits and validation cases.
@@ -484,6 +533,49 @@ Use the read-only Docker runner in “API and full-suite verification” below w
 `-p 'test_gel_break_pressure.py'` first, then `-p 'test_api.py'` and the backend
 suite. The tests cover numerical conversion, zero, geometry, finite-range
 rejection, source/units, statelessness and existing-route isolation.
+
+### Calculate-only Newtonian rheology study
+
+`POST /api/v1/rheology/newtonian/calculate` accepts a strict raw JSON object:
+
+```json
+{"readings":[{"rpm":100,"dial":10},{"rpm":600,"dial":60}]}
+```
+
+At least one reading is required, with unique positive finite RPM and nonnegative
+finite dial. The pure `openoil.domain.newtonian_rheology.calculate` accepts the
+existing `bingham_rheology.FannReading` records. It reuses `γ = 1.70333 × RPM`
+and `τ = 0.01065 × 47.88025898033584 × dial` in SI, and derives `μ = τ/γ`
+from the lowest RPM. The example yields approximately `0.0299369333 Pa·s`.
+Zero dial returns zero viscosity. Every other ratio must agree within relative
+`1e-9`, absolute `0`; this is numerical tolerance, not a noisy-data fit. One
+reading assumes rather than establishes Newtonian behavior.
+
+The response contains sorted transformed `readings` (`shear_rate_s_inv`,
+`shear_stress_pa`), `dynamic_viscosity` with quantity `dynamic_viscosity`, value
+and unit `Pa·s`, model ID `openoil.rheology.fann-newtonian`, model version `1.0.0`,
+input/result schema version `1`, and applicability assumptions/limitations.
+OpenAPI exposes the request and response schemas. Unknown fields, wrong types,
+strings, booleans, empty lists and nonfinite input return 422
+`{"detail":"invalid request body"}`. Duplicate RPM returns 422 detail
+`rpm readings must be unique`; nonconstant ratios return
+`readings are inconsistent with a Newtonian model`; unrepresentable derived
+values return `calculation outside finite numerical range`.
+
+This stateless zero-yield-stress, constant-viscosity assumption has no hydraulic
+coupling, case persistence, ID allocation, WellPlan/vendor parity or field
+validation. All-zero readings are a mathematical limit, not a hydraulic input
+recommendation. The UI provides accessible SI data, clears stale results on
+edits/failures, and disables input while calculating. See [the numerical boundary](../research/rheology/newtonian-boundary.md).
+
+Focused checks from `backend/` with `src` on `PYTHONPATH`:
+
+```bash
+.venv/Scripts/python.exe -m unittest discover -s tests -p test_newtonian_rheology.py -v
+.venv/Scripts/python.exe -m unittest discover -s tests -p test_api.py -k newtonian -v
+```
+
+From `frontend/`: `npm test -- --run src/features/rheology/NewtonianRheologyStudy.test.tsx src/pages/WorkbenchPage.test.tsx --no-cache`.
 
 ### Calculate-only Bingham rheology study
 
