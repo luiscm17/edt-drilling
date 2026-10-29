@@ -99,6 +99,14 @@ class PowerLawRheologyResult(BaseModel):
     applicability: BinghamFannApplicability
 
 
+class HerschelBulkleyInput(BaseModel):
+    model_config = ConfigDict(extra="forbid", strict=True, allow_inf_nan=False)
+    yield_stress_pa: float = Field(ge=0)
+    consistency_index_pa_s_n: float = Field(ge=0)
+    flow_behavior_index: float = Field(gt=0)
+    shear_rates_s_inv: list[float] = Field(min_length=1)
+
+
 class GeneralizedHBInput(BaseModel):
     model_config = ConfigDict(extra="forbid", strict=True, allow_inf_nan=False)
     reference_stress_pa: float = Field(gt=0)
@@ -135,6 +143,36 @@ class GeneralizedHBResult(BaseModel):
     parameters: GeneralizedHBParameters
     curve: list[GeneralizedHBCurvePoint]
     model_id: Literal["openoil.rheology.generalized-herschel-bulkley-parametric"]
+    model_version: Literal["1.0.0"]
+    input_schema_version: Literal["1"]
+    result_schema_version: Literal["1"]
+    applicability: BinghamFannApplicability
+
+
+class HerschelBulkleyParameterValue(BaseModel):
+    model_config = ConfigDict(extra="forbid", strict=True, allow_inf_nan=False)
+    value: float = Field(ge=0)
+    unit: Literal["Pa", "Pa·s^n", "1"]
+
+
+class HerschelBulkleyParameters(BaseModel):
+    model_config = ConfigDict(extra="forbid", strict=True)
+    yield_stress_pa: HerschelBulkleyParameterValue
+    consistency_index_pa_s_n: HerschelBulkleyParameterValue
+    flow_behavior_index: HerschelBulkleyParameterValue
+
+
+class HerschelBulkleyCurvePoint(BaseModel):
+    model_config = ConfigDict(extra="forbid", strict=True, allow_inf_nan=False)
+    shear_rate_s_inv: float = Field(ge=0)
+    shear_stress_pa: float = Field(ge=0)
+
+
+class HerschelBulkleyResult(BaseModel):
+    model_config = ConfigDict(extra="forbid", strict=True)
+    parameters: HerschelBulkleyParameters
+    curve: list[HerschelBulkleyCurvePoint]
+    model_id: Literal["openoil.rheology.herschel-bulkley-parametric"]
     model_version: Literal["1.0.0"]
     input_schema_version: Literal["1"]
     result_schema_version: Literal["1"]

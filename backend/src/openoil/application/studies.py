@@ -7,6 +7,7 @@ from openoil.domain import (
     bingham_rheology,
     bit_nozzle_pressure_loss,
     generalized_hb_rheology,
+    herschel_bulkley_rheology,
     nozzle_velocity,
     power_law_rheology,
     torque_drag,
@@ -25,6 +26,13 @@ def calculate_bingham_rheology(
 def calculate_generalized_hb_rheology(**parameters) -> dict:
     try:
         return generalized_hb_rheology.calculate(**parameters)
+    except ValueError as error:
+        raise UnsupportedInput(str(error)) from None
+
+
+def calculate_herschel_bulkley_rheology(**parameters) -> dict:
+    try:
+        return herschel_bulkley_rheology.calculate(**parameters)
     except ValueError as error:
         raise UnsupportedInput(str(error)) from None
 
