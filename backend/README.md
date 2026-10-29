@@ -485,6 +485,49 @@ Use the read-only Docker runner in “API and full-suite verification” below w
 suite. The tests cover numerical conversion, zero, geometry, finite-range
 rejection, source/units, statelessness and existing-route isolation.
 
+### Calculate-only Newtonian rheology study
+
+`POST /api/v1/rheology/newtonian/calculate` accepts a strict raw JSON object:
+
+```json
+{"readings":[{"rpm":100,"dial":10},{"rpm":600,"dial":60}]}
+```
+
+At least one reading is required, with unique positive finite RPM and nonnegative
+finite dial. The pure `openoil.domain.newtonian_rheology.calculate` accepts the
+existing `bingham_rheology.FannReading` records. It reuses `γ = 1.70333 × RPM`
+and `τ = 0.01065 × 47.88025898033584 × dial` in SI, and derives `μ = τ/γ`
+from the lowest RPM. The example yields approximately `0.0299369333 Pa·s`.
+Zero dial returns zero viscosity. Every other ratio must agree within relative
+`1e-9`, absolute `0`; this is numerical tolerance, not a noisy-data fit. One
+reading assumes rather than establishes Newtonian behavior.
+
+The response contains sorted transformed `readings` (`shear_rate_s_inv`,
+`shear_stress_pa`), `dynamic_viscosity` with quantity `dynamic_viscosity`, value
+and unit `Pa·s`, model ID `openoil.rheology.fann-newtonian`, model version `1.0.0`,
+input/result schema version `1`, and applicability assumptions/limitations.
+OpenAPI exposes the request and response schemas. Unknown fields, wrong types,
+strings, booleans, empty lists and nonfinite input return 422
+`{"detail":"invalid request body"}`. Duplicate RPM returns 422 detail
+`rpm readings must be unique`; nonconstant ratios return
+`readings are inconsistent with a Newtonian model`; unrepresentable derived
+values return `calculation outside finite numerical range`.
+
+This stateless zero-yield-stress, constant-viscosity assumption has no hydraulic
+coupling, case persistence, ID allocation, WellPlan/vendor parity or field
+validation. All-zero readings are a mathematical limit, not a hydraulic input
+recommendation. The UI provides accessible SI data, clears stale results on
+edits/failures, and disables input while calculating. See [the numerical boundary](../research/rheology/newtonian-boundary.md).
+
+Focused checks from `backend/` with `src` on `PYTHONPATH`:
+
+```bash
+.venv/Scripts/python.exe -m unittest discover -s tests -p test_newtonian_rheology.py -v
+.venv/Scripts/python.exe -m unittest discover -s tests -p test_api.py -k newtonian -v
+```
+
+From `frontend/`: `npm test -- --run src/features/rheology/NewtonianRheologyStudy.test.tsx src/pages/WorkbenchPage.test.tsx --no-cache`.
+
 ### Calculate-only Bingham rheology study
 
 `POST /api/v1/rheology/bingham/calculate` accepts a raw JSON object and returns a

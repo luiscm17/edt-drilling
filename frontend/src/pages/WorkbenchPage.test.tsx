@@ -35,6 +35,22 @@ function api(records: typeof record[] = []) {
 }
 
 describe('OpenOil public v1 workbench', () => {
+  it('navigates to Newtonian by keyboard without losing hydraulic snapshots or sibling inputs', async () => {
+    const fetcher = api([record]); const user = userEvent.setup(); render(<App />);
+    await user.click(await screen.findByRole('button', { name: /Load case 1/ }));
+    await screen.findByRole('table', { name: 'Section pressure losses' });
+    const nav = screen.getByRole('button', { name: /Newtonian rheology study/ });
+    nav.focus(); await user.keyboard('{Enter}');
+    expect(nav).toHaveAttribute('aria-current', 'page');
+    expect(screen.getByRole('link', { name: 'Skip to inputs' })).toHaveAttribute('href', '#newtonian-rheology');
+    await user.type(screen.getByLabelText('Reading 1 RPM'), '100');
+    await user.click(screen.getByRole('button', { name: /Bingham rheology study/ }));
+    expect(screen.getByRole('spinbutton', { name: '300 rpm dial reading' })).toHaveValue(null);
+    await user.click(screen.getByRole('button', { name: /Hydraulics & saved cases/ }));
+    expect(screen.getByRole('table', { name: 'Section pressure losses' })).toHaveTextContent('1,000');
+    await user.click(nav); expect(screen.getByLabelText('Reading 1 RPM')).toHaveValue(100);
+    expect(fetcher.mock.calls.map(([url]) => url)).toEqual(['/api/v1/cases', '/api/v1/cases/1']);
+  });
   it('keeps hydraulic snapshots intact while navigating through conventional rheology', async () => {
     const fetcher = api([record]); const user = userEvent.setup(); render(<App />);
     await user.click(await screen.findByRole('button', { name: /Load case 1/ }));

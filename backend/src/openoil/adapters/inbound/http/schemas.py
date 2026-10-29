@@ -19,6 +19,11 @@ class FannReadingInput(BaseModel):
     dial: float = Field(ge=0)
 
 
+class NewtonianFannRheologyInput(BaseModel):
+    model_config = ConfigDict(extra="forbid", strict=True, allow_inf_nan=False)
+    readings: list[FannReadingInput] = Field(min_length=1)
+
+
 class BinghamFannRheologyInput(BaseModel):
     model_config = ConfigDict(extra="forbid", strict=True, allow_inf_nan=False)
     readings: list[FannReadingInput] = Field(min_length=2)
@@ -51,6 +56,24 @@ class BinghamFannApplicability(BaseModel):
     status: Literal["supported"]
     assumptions: str
     limitations: str
+
+
+class DynamicViscosityResult(BaseModel):
+    model_config = ConfigDict(extra="forbid", strict=True, allow_inf_nan=False)
+    quantity: Literal["dynamic_viscosity"]
+    value: float = Field(ge=0)
+    unit: Literal["Pa·s"]
+
+
+class NewtonianFannRheologyResult(BaseModel):
+    model_config = ConfigDict(extra="forbid", strict=True)
+    readings: list[BinghamFannReadingResult]
+    dynamic_viscosity: DynamicViscosityResult
+    model_id: Literal["openoil.rheology.fann-newtonian"]
+    model_version: Literal["1.0.0"]
+    input_schema_version: Literal["1"]
+    result_schema_version: Literal["1"]
+    applicability: BinghamFannApplicability
 
 
 class BinghamFannRheologyResult(BaseModel):

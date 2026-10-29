@@ -16,6 +16,8 @@ from openoil.adapters.inbound.http.schemas import (
     GelBreakPressureResult,
     HerschelBulkleyInput,
     HerschelBulkleyResult,
+    NewtonianFannRheologyInput,
+    NewtonianFannRheologyResult,
     NozzleVelocityInput,
     NozzleVelocityResult,
     PowerLawRheologyResult,
@@ -50,6 +52,17 @@ def register_routes(app, service):
             [gel_break_pressure.Component(**component.model_dump())
              for component in inputs.components],
         )
+
+    @router.post(
+        "/rheology/newtonian/calculate",
+        response_model=NewtonianFannRheologyResult,
+    )
+    def calculate_newtonian_rheology(inputs: NewtonianFannRheologyInput):
+        """Stateless zero-yield Newtonian assumption; no vendor parity or field validation."""
+        return studies.calculate_newtonian_rheology([
+            bingham_rheology.FannReading(**reading.model_dump())
+            for reading in inputs.readings
+        ])
 
     @router.post(
         "/rheology/bingham/calculate",
