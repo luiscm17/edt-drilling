@@ -44,9 +44,13 @@ async function openStudy(user: ReturnType<typeof userEvent.setup>) {
   return nav;
 }
 
+function field(name: string) {
+  return within(document.getElementById('bingham-rheology')!).getByLabelText(name);
+}
+
 async function enterRequiredReadings(user: ReturnType<typeof userEvent.setup>) {
-  await user.type(screen.getByLabelText('300 rpm dial reading'), '50');
-  await user.type(screen.getByLabelText('600 rpm dial reading'), '75');
+  await user.type(field('300 rpm dial reading'), '50');
+  await user.type(field('600 rpm dial reading'), '75');
 }
 
 async function calculate(user: ReturnType<typeof userEvent.setup>) {
@@ -82,8 +86,8 @@ describe('bounded calculate-only Bingham rheology study', () => {
     await user.click(screen.getByRole('button', { name: /Bingham rheology study/ }));
     expect(screen.getByRole('table', { name: 'Rheology shear data' })).toBeVisible();
     expect(fetcher.mock.calls).toHaveLength(2);
-    await user.clear(screen.getByLabelText('300 rpm dial reading'));
-    await user.type(screen.getByLabelText('300 rpm dial reading'), '49');
+    await user.clear(field('300 rpm dial reading'));
+    await user.type(field('300 rpm dial reading'), '49');
     expect(screen.queryByRole('table')).not.toBeInTheDocument();
     expect(screen.queryByText(result.model_id)).not.toBeInTheDocument();
   });
@@ -93,8 +97,8 @@ describe('bounded calculate-only Bingham rheology study', () => {
     await openStudy(user);
     await enterRequiredReadings(user);
     await user.click(screen.getByRole('button', { name: 'Add optional reading' }));
-    await user.type(screen.getByLabelText('Optional reading 1 RPM'), '100');
-    await user.type(screen.getByLabelText('Optional reading 1 dial reading'), '25');
+    await user.type(field('Optional reading 1 RPM'), '100');
+    await user.type(field('Optional reading 1 dial reading'), '25');
     fetcher.mockResolvedValueOnce(Response.json({ ...result, readings: [
       { rpm: 100, dial: 25, shear_rate_s_inv: 170.333, shear_stress_pa: 12.748118953514417 },
       ...result.readings,
@@ -108,8 +112,8 @@ describe('bounded calculate-only Bingham rheology study', () => {
       ] }),
     });
     const requestCount = fetcher.mock.calls.length;
-    await user.clear(screen.getByLabelText('Optional reading 1 RPM'));
-    await user.type(screen.getByLabelText('Optional reading 1 RPM'), '600');
+    await user.clear(field('Optional reading 1 RPM'));
+    await user.type(field('Optional reading 1 RPM'), '600');
     await calculate(user);
     expect(screen.getByRole('alert')).toHaveTextContent('RPM readings must be unique positive finite numbers.');
     expect(screen.queryByRole('table')).not.toBeInTheDocument();

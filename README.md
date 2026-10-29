@@ -8,6 +8,7 @@ OpenOil is a browser-based drilling-engineering workbench for transparent, bound
 - **Bit/nozzle pressure loss:** a separate calculation contribution; it is not a complete circulating-system or standpipe-pressure result.
 - **Torque and drag:** a quasi-static straight-well weight-and-contact study, not a directional-well simulator.
 - **Bingham rheology:** standalone plastic-viscosity/yield-point derivation from 300/600 RPM readings, with an SI shear curve; not a full rheology or hydraulics model.
+- **Power Law rheology:** standalone flow-behavior/consistency derivation from positive 300/600 RPM Fann readings, with an SI curve and observed points; not a hydraulic or full-fluid fit.
 
 See the [capability roadmap](docs/gaps.md) for the reconstruction target and the [engineering reference](docs/reference/drilling-capabilities.md) for documented workflows, equations, and unknowns. The [backend guide](backend/README.md) describes the current models, API behavior, and supported domains.
 

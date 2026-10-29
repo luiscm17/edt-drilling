@@ -12,10 +12,10 @@ S5 (source equations): Installed WebHelp `c_pwr_law_rheol_calc.html` documents `
 
 ## Tasks
 
-T1 [S1-S5] Inspect repository seams, installed documentation and static binary metadata; record bounded equations/uncertainties — parent; done; commit pending with evidence note.
+T1 [S1-S5] Inspect repository seams, installed documentation and static binary metadata; record bounded equations/uncertainties — parent; done; evidence note commit `c5069ab`.
 T2 [S1-S5] Create branch and tracker/mirror before source writes — parent; done; Engram mirror observation 145.
-T3 [S3-S5] RED/GREEN implement pure domain calculation, additive versioned API, exact validation tests and backend guide — parent inline; pending.
-T4 [S3-S5] RED/GREEN implement accessible independent UI graph/table and navigation tests — parent inline; pending.
+T3 [S3-S5] RED/GREEN implement pure domain calculation, additive versioned API, exact validation tests and backend guide — parent inline; done; domain RED import failure, API RED 404; focused GREEN and backend suite 67/67; commit `c5069ab`.
+T4 [S3-S5] RED/GREEN implement accessible independent UI graph/table and navigation tests — parent inline; done; UI RED 2/2 missing navigation, focused GREEN 2/2 and production build; commit pending.
 T5 [S1-S5] Run full checks, differential sibling-route tests, assess/review if due, record evidence and commits — parent; pending.
 
 ## Log
