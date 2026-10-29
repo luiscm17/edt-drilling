@@ -99,6 +99,48 @@ class PowerLawRheologyResult(BaseModel):
     applicability: BinghamFannApplicability
 
 
+class GeneralizedHBInput(BaseModel):
+    model_config = ConfigDict(extra="forbid", strict=True, allow_inf_nan=False)
+    reference_stress_pa: float = Field(gt=0)
+    zero_shear_stress_pa: float = Field(ge=0)
+    high_shear_viscosity_pa_s: float = Field(ge=0)
+    stress_exponent: float = Field(gt=0)
+    rate_exponent: float = Field(gt=0)
+    shear_rates_s_inv: list[float] = Field(min_length=1)
+
+
+class ParameterValue(BaseModel):
+    model_config = ConfigDict(extra="forbid", strict=True, allow_inf_nan=False)
+    value: float = Field(ge=0)
+    unit: Literal["Pa", "Pa·s", "1"]
+
+
+class GeneralizedHBParameters(BaseModel):
+    model_config = ConfigDict(extra="forbid", strict=True)
+    reference_stress_pa: ParameterValue
+    zero_shear_stress_pa: ParameterValue
+    high_shear_viscosity_pa_s: ParameterValue
+    stress_exponent: ParameterValue
+    rate_exponent: ParameterValue
+
+
+class GeneralizedHBCurvePoint(BaseModel):
+    model_config = ConfigDict(extra="forbid", strict=True, allow_inf_nan=False)
+    shear_rate_s_inv: float = Field(ge=0)
+    shear_stress_pa: float = Field(ge=0)
+
+
+class GeneralizedHBResult(BaseModel):
+    model_config = ConfigDict(extra="forbid", strict=True)
+    parameters: GeneralizedHBParameters
+    curve: list[GeneralizedHBCurvePoint]
+    model_id: Literal["openoil.rheology.generalized-herschel-bulkley-parametric"]
+    model_version: Literal["1.0.0"]
+    input_schema_version: Literal["1"]
+    result_schema_version: Literal["1"]
+    applicability: BinghamFannApplicability
+
+
 class NozzleVelocityInput(BaseModel):
     model_config = ConfigDict(extra="forbid", strict=True, allow_inf_nan=False)
     flow_m3_s: float = Field(gt=0)

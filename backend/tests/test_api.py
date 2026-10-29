@@ -219,6 +219,42 @@ class ApiTests(unittest.TestCase):
                                  200, expected_result(data))
 
 
+    def test_generalized_hb_parametric_study_is_stateless_and_strict(self):
+        route = '/api/v1/rheology/generalized-hb/calculate'
+        data = {'reference_stress_pa': 10, 'zero_shear_stress_pa': 3,
+                'high_shear_viscosity_pa_s': 0.2, 'stress_exponent': 2,
+                'rate_exponent': 2, 'shear_rates_s_inv': [40, 0]}
+        record = self.client.post('/api/v1/cases', json=INPUT).json()
+        out, err = io.StringIO(), io.StringIO()
+        with redirect_stdout(out), redirect_stderr(err):
+            response = self.client.post(route, json=data)
+        self.assertEqual(response.status_code, 200, response.text)
+        body = response.json()
+        self.assertEqual(set(body), {'parameters', 'curve', 'model_id', 'model_version',
+                                     'input_schema_version', 'result_schema_version', 'applicability'})
+        self.assertEqual(body['model_id'], 'openoil.rheology.generalized-herschel-bulkley-parametric')
+        self.assertEqual(body['curve'][0], {'shear_rate_s_inv': 0, 'shear_stress_pa': 3})
+        self.assertAlmostEqual(body['curve'][1]['shear_stress_pa'], 73 ** 0.5)
+        self.assertEqual(body['parameters']['reference_stress_pa'], {'value': 10, 'unit': 'Pa'})
+        self.assertEqual((out.getvalue(), err.getvalue()), ('', ''))
+        for old_route in ['/api/v1/calculate', '/api/v1/cases',
+                          '/api/v1/rheology/power-law/calculate',
+                          '/api/v1/rheology/bingham/calculate']:
+            self.assert_response(self.client.post(old_route, json=data), 422,
+                                 {'detail': 'invalid request body'})
+        for invalid, detail in [
+            ({}, 'invalid request body'),
+            (dict(data, extra=1), 'invalid request body'),
+            (dict(data, stress_exponent=True), 'invalid request body'),
+            (dict(data, shear_rates_s_inv=[]), 'invalid request body'),
+            (dict(data, stress_exponent=0), 'invalid request body'),
+            (dict(data, shear_rates_s_inv=[0, 0]), 'shear rates must be unique'),
+        ]:
+            self.assert_response(self.client.post(route, json=invalid), 422,
+                                 {'detail': detail})
+            self.assert_response(self.client.get('/api/v1/cases'), 200, [record])
+        self.assertEqual(self.client.post('/api/v1/cases', json=INPUT).json()['id'], 2)
+
     def test_power_law_study_is_strict_stateless_and_isolated_from_existing_routes(self):
         route = '/api/v1/rheology/power-law/calculate'
         data = {'readings': [{'rpm': 300, 'dial': 50}, {'rpm': 600, 'dial': 75},
