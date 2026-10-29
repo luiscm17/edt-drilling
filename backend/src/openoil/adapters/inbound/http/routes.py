@@ -10,6 +10,8 @@ from openoil.adapters.inbound.http.schemas import (
     BitNozzlePressureLossInput,
     BitNozzlePressureLossResult,
     CalculationInput,
+    GeneralizedHBInput,
+    GeneralizedHBResult,
     NozzleVelocityInput,
     NozzleVelocityResult,
     PowerLawRheologyResult,
@@ -33,6 +35,13 @@ def register_routes(app, service):
             for reading in inputs.readings
         ]
         return studies.calculate_bingham_rheology(readings)
+
+    @router.post(
+        "/rheology/generalized-hb/calculate",
+        response_model=GeneralizedHBResult,
+    )
+    def calculate_generalized_hb_rheology(inputs: GeneralizedHBInput):
+        return studies.calculate_generalized_hb_rheology(**inputs.model_dump())
 
     @router.post(
         "/rheology/power-law/calculate",

@@ -400,6 +400,23 @@ docker compose run --rm --no-deps backend uv run --frozen python -m unittest dis
 docker compose run --rm --no-deps backend uv run --frozen python -m unittest discover -s tests -p 'test_api.py' -v
 ```
 
+### Generalized Herschel–Bulkley parametric study
+
+`POST /api/v1/rheology/generalized-hb/calculate` evaluates supplied SI parameters. It neither fits Fann observations nor computes foam/circulation pressure, persists a case or changes hydraulic results. The required raw JSON input is:
+
+```json
+{"reference_stress_pa":10,"zero_shear_stress_pa":3,"high_shear_viscosity_pa_s":0.2,"stress_exponent":2,"rate_exponent":2,"shear_rates_s_inv":[0,40]}
+```
+
+The response contains those parameters and units, ordered `curve` points (`shear_rate_s_inv` in s⁻¹; `shear_stress_pa` in Pa), model/schema versions and limitations. The example yields 3 Pa at zero shear and approximately 8.544 Pa at 40 s⁻¹. `reference_stress_pa`, `stress_exponent` and `rate_exponent` must be positive finite numbers; zero-shear stress and high-shear viscosity must be nonnegative finite numbers; at least one unique nonnegative finite shear rate is required. Malformed/extra fields, booleans, strings and nonfinite inputs are rejected with 422 `{"detail":"invalid request body"}`; duplicate rates and unrepresentable derived values are rejected with a specific 422 detail. All rejections leave stored cases and IDs unchanged. The independent SI equation, limits and static-source distinction are in [the model boundary](../research/rheology/generalized-hb-boundary.md). The UI shows a modeled curve and accessible data, **not** invented observations or measured reference results. No numerical parity or field validity is claimed.
+
+Focused tests from `backend/` with `backend/src` on `PYTHONPATH`:
+
+```bash
+python -m unittest discover -s tests -p 'test_generalized_hb_rheology.py' -v
+python -m unittest discover -s tests -p 'test_api.py' -k generalized_hb -v
+```
+
 ### Calculate-only Power Law rheology study
 
 `POST /api/v1/rheology/power-law/calculate` accepts `{"readings":[{"rpm":300,"dial":50},{"rpm":600,"dial":75}]}`. It returns transformed observations in SI, a model curve at entered RPM values, dimensionless `flow_behavior_index` (n), `consistency_index` (K) in Pa·s^n, model/schema versions and applicability limits. For this example n is approximately `0.5849625007` and K is `0.6639753206 Pa·s^n` (independent arithmetic, not an observed reference-software output). The curve uses `τ = K γ^n`, with γ in s⁻¹ and τ in Pa. The [engineering boundary](../research/rheology/power-law-boundary.md) records the installed help equations, SI interpretation, static REA limits and validation cases.
