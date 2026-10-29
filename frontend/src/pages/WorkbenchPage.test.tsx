@@ -35,6 +35,22 @@ function api(records: typeof record[] = []) {
 }
 
 describe('OpenOil public v1 workbench', () => {
+  it('keeps prior study inputs and a saved case intact while navigating through generalized rheology', async () => {
+    const fetcher = api([record]); const user = userEvent.setup(); render(<App />);
+    await user.click(await screen.findByRole('button', { name: /Load case 1/ }));
+    await screen.findByRole('table', { name: 'Section pressure losses' });
+    await user.click(screen.getByRole('button', { name: /Generalized Herschel–Bulkley study/ }));
+    const generalized = within(document.getElementById('generalized-hb-rheology')!);
+    await user.type(generalized.getByLabelText('Reference stress (Pa)'), '10');
+    await user.click(screen.getByRole('button', { name: /Power Law rheology study/ }));
+    expect(screen.getByRole('heading', { name: 'Power Law rheology study' })).toBeVisible();
+    await user.click(screen.getByRole('button', { name: /Hydraulics & saved cases/ }));
+    expect(screen.getByRole('table', { name: 'Section pressure losses' })).toHaveTextContent('1,000');
+    await user.click(screen.getByRole('button', { name: /Generalized Herschel–Bulkley study/ }));
+    expect(generalized.getByLabelText('Reference stress (Pa)')).toHaveValue(10);
+    expect(fetcher.mock.calls.map(([url]) => url)).toEqual(['/api/v1/cases', '/api/v1/cases/1']);
+  });
+
   it('keeps existing studies and saved cases intact when navigating through Power Law', async () => {
     const fetcher = api([record]); const user = userEvent.setup(); render(<App />);
     await user.click(await screen.findByRole('button', { name: /Load case 1/ }));
