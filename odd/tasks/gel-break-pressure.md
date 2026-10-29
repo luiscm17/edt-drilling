@@ -14,7 +14,7 @@ S6 (exclusions, verbatim): "Dejaría fuera otros tiempos de gel, presión anular
 T1 [S1-S6] Reconcile evidence, branch and feature contract — parent inline; done; commit: `4b9c357`.
 T2 [S2-S3,S5-S6] Standalone pure-domain calculation and public API, with tests and documentation — bounded writer; done; commit: `4b9c357` (backend 82/82 local unittest; behavioral RED unavailable because Docker runner failed before test discovery).
 T3 [S4-S6] RED/GREEN accessible UI and table, with tests and documentation — parent inline; done; commit: `b2fa282` (frontend RED 3/3 missing navigation, GREEN 3/3 focused; full 42/42 and build passed).
-T4 [S1-S6] Run suites and functional checks, update coverage, assess review and close evidence — parent inline; done; commit: pending (Docker backend 82/82, frontend 42/42 and build, browser/API smoke, docs links, native ASSESS medium with reviewDue=false).
+T4 [S1-S6] Run suites and functional checks, update coverage, assess review and close evidence — parent inline; done; commit: `ae5299b` (Docker backend 82/82, frontend 42/42 and build, browser/API smoke, docs links, native ASSESS medium with reviewDue=false).
 
 ## Log
 L1 (original request, verbatim): ahhh bueno, es mas de lo que sugeri y estoy de acuerdo, dale con la rama y odd
