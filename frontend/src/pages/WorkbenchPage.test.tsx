@@ -35,6 +35,21 @@ function api(records: typeof record[] = []) {
 }
 
 describe('OpenOil public v1 workbench', () => {
+  it('keeps hydraulic snapshots intact while navigating through conventional rheology', async () => {
+    const fetcher = api([record]); const user = userEvent.setup(); render(<App />);
+    await user.click(await screen.findByRole('button', { name: /Load case 1/ }));
+    await screen.findByRole('table', { name: 'Section pressure losses' });
+    const nav = within(screen.getByRole('navigation', { name: 'Workbench studies' }))
+      .getByRole('button', { name: /Herschel–Bulkley study Yield stress/ });
+    nav.focus(); await user.keyboard('{Enter}');
+    expect(nav).toHaveAttribute('aria-current', 'page');
+    expect(screen.getByRole('heading', { name: 'Herschel–Bulkley rheology study' })).toBeVisible();
+    await user.click(screen.getByRole('button', { name: /Hydraulics & saved cases/ }));
+    expect(screen.getByRole('table', { name: 'Section pressure losses' })).toHaveTextContent('1,000');
+    expect(screen.getByRole('button', { name: /Load case 1/ })).toBeVisible();
+    expect(fetcher.mock.calls.map(([url]) => url)).toEqual(['/api/v1/cases', '/api/v1/cases/1']);
+  });
+
   it('keeps prior study inputs and a saved case intact while navigating through generalized rheology', async () => {
     const fetcher = api([record]); const user = userEvent.setup(); render(<App />);
     await user.click(await screen.findByRole('button', { name: /Load case 1/ }));
