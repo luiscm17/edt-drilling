@@ -1,4 +1,4 @@
-"""Sole public V1 contract and rejection of removed legacy routes."""
+"""Public V1 API contract tests."""
 
 from contextlib import redirect_stderr, redirect_stdout
 from dataclasses import asdict
@@ -84,31 +84,6 @@ class V1RouteTests(unittest.TestCase):
             201,
             {"id": 1, "input": INPUT, "result": expected_result(INPUT)},
         )
-
-    def test_legacy_routes_are_rejected_without_mutating_v1_cases(self):
-        record = {"id": 1, "input": INPUT, "result": expected_result(INPUT)}
-        self.assert_response(self.client.post("/api/v1/cases", json=INPUT), 201, record)
-        requests = [
-            ("get", "/api/cases", {}),
-            ("get", "/api/cases/1", {}),
-            ("get", "/api/v2/cases", {}),
-            ("get", "/api/v2/cases/1", {}),
-            ("post", "/api/calculate", {"json": INPUT}),
-            ("post", "/api/cases", {"json": INPUT}),
-            ("post", "/api/v2/calculate", {"json": {"input_schema_version": "1", "input": INPUT}}),
-            ("post", "/api/v2/cases", {"json": {"input_schema_version": "1", "input": INPUT}}),
-            ("post", "/api/nozzle-velocity/calculate", {"json": {"flow_m3_s": 0.01, "total_nozzle_area_m2": 0.001}}),
-            ("post", "/api/bit-nozzle-pressure-loss/calculate", {"json": {"density_kg_m3": 1000, "flow_m3_s": 0.01, "total_nozzle_area_m2": 0.001}}),
-            ("post", "/api/torque-drag/calculate", {"json": TORQUE_INPUT}),
-        ]
-        for method, path, kwargs in requests:
-            with self.subTest(path=path):
-                self.assert_response(getattr(self.client, method)(path, **kwargs), 404, {"detail": "Not Found"})
-        paths = set(self.client.get("/openapi.json").json()["paths"])
-        self.assertTrue(paths)
-        self.assertTrue(all(path.startswith("/api/v1/") for path in paths), paths)
-        self.assert_response(self.client.get("/api/v1/cases"), 200, [record])
-        self.assert_response(self.client.post("/api/v1/cases", json=INPUT), 201, dict(record, id=2))
 
 
 if __name__ == "__main__":

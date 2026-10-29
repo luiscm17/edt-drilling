@@ -3,6 +3,7 @@ import { Results } from '../features/hydraulics/components/Results';
 import { TorqueDragStudy } from '../features/torque-drag/TorqueDragStudy';
 import { NozzleVelocityStudy } from '../features/nozzle-velocity/NozzleVelocityStudy';
 import { BitNozzlePressureLossStudy } from '../features/bit-nozzle-pressure-loss/BitNozzlePressureLossStudy';
+import { BinghamRheologyStudy } from '../features/rheology/BinghamRheologyStudy';
 import type { Inputs, Result, Snapshot, SavedCase, Section } from '../features/hydraulics/types';
 
 const defaultSection: Section = { length_m: 100, pipe_id_m: 0.08, pipe_od_m: 0.1, hole_id_m: 0.2 };
@@ -35,7 +36,7 @@ async function request<T>(path: string, input?: Inputs): Promise<T> {
 }
 
 export default function App() {
-  const [study, setStudy] = useState<'hydraulics' | 'torque-drag' | 'nozzle-velocity' | 'bit-nozzle-pressure-loss'>('hydraulics');
+  const [study, setStudy] = useState<'hydraulics' | 'torque-drag' | 'nozzle-velocity' | 'bit-nozzle-pressure-loss' | 'bingham-rheology'>('hydraulics');
   const [inputs, setInputs] = useState(initial);
   const [snapshot, setSnapshot] = useState<Snapshot | null>(null);
   const [cases, setCases] = useState<SavedCase[]>([]);
@@ -107,11 +108,16 @@ export default function App() {
           <span className="nav-index" aria-hidden="true">04</span>Bit/nozzle pressure-loss study
           <small>Density · Flow · Total area · Pressure loss</small>
         </button>
-        <p className="nav-note">Four independent studies.<br />Only hydraulic snapshots are saved locally; other studies are temporary.</p>
+        <button type="button" aria-current={study === 'bingham-rheology' ? 'page' : undefined}
+          aria-controls="bingham-view" onClick={() => setStudy('bingham-rheology')}>
+          <span className="nav-index" aria-hidden="true">05</span>Bingham rheology study
+          <small>PV · YP · shear curve</small>
+        </button>
+        <p className="nav-note">Five independent studies.<br />Only hydraulic snapshots are saved locally; other studies are temporary.</p>
       </nav>
     <main>
-      <div className="view-heading"><div><p className="eyebrow">Analysis / {study === 'hydraulics' ? '01' : study === 'torque-drag' ? '02' : study === 'nozzle-velocity' ? '03' : '04'}</p>
-        <h2>{study === 'hydraulics' ? 'Hydraulics' : study === 'torque-drag' ? 'Torque & drag' : study === 'nozzle-velocity' ? 'Nozzle velocity' : 'Bit/nozzle pressure loss'}</h2></div>
+      <div className="view-heading"><div><p className="eyebrow">Analysis / {study === 'hydraulics' ? '01' : study === 'torque-drag' ? '02' : study === 'nozzle-velocity' ? '03' : study === 'bit-nozzle-pressure-loss' ? '04' : '05'}</p>
+        <h2>{study === 'hydraulics' ? 'Hydraulics' : study === 'torque-drag' ? 'Torque & drag' : study === 'nozzle-velocity' ? 'Nozzle velocity' : study === 'bit-nozzle-pressure-loss' ? 'Bit/nozzle pressure loss' : 'Bingham rheology'}</h2></div>
         <span className="view-mode">{study === 'hydraulics' ? 'SNAPSHOT WORKSPACE' : 'CALCULATE ONLY'}</span></div>
       {/* Keep inactive studies mounted so navigation never discards work or repeats requests. */}
       <div id="hydraulics-view" hidden={study !== 'hydraulics'}>
@@ -175,7 +181,8 @@ export default function App() {
       <div id="torque-view" hidden={study !== 'torque-drag'}><TorqueDragStudy /></div>
       <div id="nozzle-view" hidden={study !== 'nozzle-velocity'}><NozzleVelocityStudy /></div>
       <div id="bit-loss-view" hidden={study !== 'bit-nozzle-pressure-loss'}><BitNozzlePressureLossStudy /></div>
-      <footer><strong>Know the boundary.</strong> Hydraulics excludes cuttings, bit optimization, swab/surge, real-time data and torque/drag coupling. Its vertical model excludes eccentricity, roughness, inclination, non-Newtonian rheology and thermal effects. The separate torque/drag study has its own straight-well limits. Independently validate before any engineering use.</footer>
+      <div id="bingham-view" hidden={study !== 'bingham-rheology'}><BinghamRheologyStudy /></div>
+      <footer><strong>Know the boundary.</strong> Hydraulics excludes cuttings, bit optimization, swab/surge, real-time data and torque/drag coupling. Its vertical model excludes eccentricity, roughness, inclination, non-Newtonian rheology and thermal effects. The standalone Bingham study is not coupled to hydraulics and has its own two-point limits. The separate torque/drag study has its own straight-well limits. Independently validate before any engineering use.</footer>
     </main>
     </div>
   </>;

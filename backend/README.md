@@ -159,8 +159,9 @@ core applicability limits still apply; table/plot presentation belongs to the UI
 
 ### Provenance storage and snapshot compatibility
 
-The public API has only the `/api/v1` routes listed above. Calculate returns the
-result object directly; save/list/load return only `id`, `input` and `result`.
+All public API endpoints use the `/api/v1` prefix. Calculate-only study routes
+below are independent of hydraulic snapshots; save/list/load retain their existing
+`id`, `input` and `result` contract.
 The v1 responses do not expose per-case provenance. Newly saved cases still retain
 model metadata internally in nullable `provenance_json`; this is an independently
 defined OpenOil model identity, not an accuracy certification. It contains
@@ -398,6 +399,57 @@ docker compose build backend
 docker compose run --rm --no-deps backend uv run --frozen python -m unittest discover -s tests -p 'test_bit_nozzle_pressure_loss.py' -v
 docker compose run --rm --no-deps backend uv run --frozen python -m unittest discover -s tests -p 'test_api.py' -v
 ```
+
+### Calculate-only Bingham rheology study
+
+`POST /api/v1/rheology/bingham/calculate` accepts a raw JSON object and returns a
+raw result object. It is separate from hydraulic case calculation and storage:
+there is no save route, case snapshot, ID allocation or hydraulic coupling. The
+request schema is available in OpenAPI. Every reading has a positive finite `rpm`
+and a nonnegative finite `dial`; readings must have unique RPM values and include
+both 300 and 600 RPM. Unknown or extra fields, strings, booleans, null, malformed
+JSON, and nonfinite numbers are rejected as 422 `{"detail":"invalid request body"}`.
+Negative derived plastic viscosity or yield point is rejected with its exact
+model message; zero is allowed in this standalone study.
+
+Example request:
+
+```json
+{"readings":[{"rpm":300,"dial":50},{"rpm":600,"dial":75}]}
+```
+
+The response identifies `plastic_viscosity` in Pa·s, `yield_point` in Pa,
+transformed observations (`shear_rate_s_inv` in s⁻¹ and `shear_stress_pa` in Pa),
+model/schema versions, and applicability limits. For the example, PV is
+approximately `0.024947444 Pa·s` and YP is approximately `12.748119 Pa`. These
+are independently calculated OpenOil values, not a reference-software runtime
+result.
+
+The pure function `openoil.domain.bingham_rheology.calculate` implements the
+explicit transforms and two-point derivation documented in
+[`research/rheology/boundary.md`](../research/rheology/boundary.md). The 300/600
+RPM observations alone define PV and YP. Optional additional readings are
+transformed and plotted but are not fit into a regression or used to change the
+Bingham parameters. The study excludes gels, other rheology models, and hydraulics
+integration. The frontend shows the measured points and derived Bingham line in
+SI, with an accessible data table; displayed digits are not accuracy. There is no
+claim of exact interface or numerical parity and this is not validated for field
+decisions.
+
+Success and rejection produce no handler output, leave saved hydraulic cases
+unchanged, and consume no IDs. The existing hydraulic, nozzle-velocity,
+torque/drag and bit/nozzle routes are unchanged. Rebuild because tests are copied
+into the image, then run focused checks:
+
+```bash
+docker compose build backend
+docker compose run --rm --no-deps backend uv run --frozen python -m unittest discover -s tests -p 'test_bingham_rheology.py' -v
+docker compose run --rm --no-deps backend sh -c "cd /app/tests && uv run --frozen python -m unittest test_api.ApiTests.test_bingham_rheology_is_stateless_strict_and_does_not_change_sibling_routes -v"
+```
+
+The tests exercise public HTTP output/errors, strict rejection, unchanged saved
+rows and IDs, handler silence, and sibling-route behavior with the new request
+shape.
 
 ### API and full-suite verification (Docker only)
 
