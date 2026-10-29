@@ -65,6 +65,58 @@ class BinghamFannRheologyResult(BaseModel):
     applicability: BinghamFannApplicability
 
 
+class GelComponentInput(BaseModel):
+    model_config = ConfigDict(extra="forbid", strict=True, allow_inf_nan=False)
+    length_m: float = Field(gt=0, description="Component length in metres")
+    inner_diameter_m: float = Field(gt=0, description="String interior diameter in metres")
+
+
+class GelBreakPressureInput(BaseModel):
+    model_config = ConfigDict(extra="forbid", strict=True, allow_inf_nan=False)
+    dial_3_rpm: float = Field(ge=0, description="Fann dial at 3 rpm; zero-second gel source")
+    components: list[GelComponentInput] = Field(min_length=1)
+
+
+class GelComponentResult(GelComponentInput):
+    pressure_pa: float = Field(ge=0)
+
+
+class GelSource(BaseModel):
+    model_config = ConfigDict(extra="forbid", strict=True, allow_inf_nan=False)
+    rpm: Literal[3]
+    dial: float = Field(ge=0)
+    stress_lb_ft2_per_dial: Literal[0.01065]
+    lb_ft2_to_pa: Literal[47.88025898033584]
+
+
+class GelStressResult(BaseModel):
+    model_config = ConfigDict(extra="forbid", strict=True, allow_inf_nan=False)
+    quantity: Literal["zero_second_gel_stress"]
+    value: float = Field(ge=0)
+    unit: Literal["Pa"]
+
+
+class GelPressureResult(BaseModel):
+    model_config = ConfigDict(extra="forbid", strict=True, allow_inf_nan=False)
+    quantity: Literal["interior_break_gel_pressure"]
+    value: float = Field(ge=0)
+    unit: Literal["Pa"]
+
+
+class GelBreakPressureResult(BaseModel):
+    model_config = ConfigDict(extra="forbid", strict=True)
+    gel_stress: GelStressResult
+    pressure: GelPressureResult
+    components: list[GelComponentResult]
+    source: GelSource
+    scope: Literal["string interior only"]
+    model_id: Literal["openoil.rheology.fann-zero-second-gel-break-pressure"]
+    model_version: Literal["1.0.0"]
+    input_schema_version: Literal["1"]
+    result_schema_version: Literal["1"]
+    applicability: BinghamFannApplicability
+
+
 class PowerLawCurvePoint(BaseModel):
     model_config = ConfigDict(extra="forbid", strict=True, allow_inf_nan=False)
     rpm: float = Field(gt=0)

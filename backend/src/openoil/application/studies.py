@@ -7,11 +7,21 @@ from openoil.domain import (
     bingham_rheology,
     bit_nozzle_pressure_loss,
     generalized_hb_rheology,
+    gel_break_pressure,
     herschel_bulkley_rheology,
     nozzle_velocity,
     power_law_rheology,
     torque_drag,
 )
+
+
+def calculate_gel_break_pressure(
+    dial_3_rpm: float, components: Sequence[gel_break_pressure.Component],
+) -> dict:
+    try:
+        return gel_break_pressure.calculate(dial_3_rpm, components)
+    except ValueError as error:
+        raise UnsupportedInput(str(error)) from None
 
 
 def calculate_bingham_rheology(

@@ -87,6 +87,24 @@ class ApiTests(unittest.TestCase):
         # The existing base calculation keeps its exact contract.
         self.assert_response(self.client.post('/api/v1/calculate', json=INPUT), 200, expected_result(INPUT))
 
+    def test_gel_payload_does_not_change_existing_routes_or_bingham_schema(self):
+        gel = {'dial_3_rpm': 10, 'components': [
+            {'length_m': 100, 'inner_diameter_m': 0.1}]}
+        record = self.client.post('/api/v1/cases', json=INPUT).json()
+        for route in ['/calculate', '/cases', '/nozzle-velocity/calculate',
+                      '/bit-nozzle-pressure-loss/calculate', '/torque-drag/calculate',
+                      '/rheology/bingham/calculate', '/rheology/power-law/calculate',
+                      '/rheology/herschel-bulkley/calculate', '/rheology/generalized-hb/calculate']:
+            self.assert_response(self.client.post('/api/v1' + route, json=gel), 422,
+                                 {'detail': 'invalid request body'})
+        response = self.client.post('/api/v1/rheology/bingham/calculate', json={
+            'readings': [{'rpm': 300, 'dial': 50}, {'rpm': 600, 'dial': 75}]})
+        self.assertEqual(response.status_code, 200, response.text)
+        self.assertEqual(response.json()['yield_point'], {
+            'quantity': 'yield_point', 'value': 25 * (0.01065 * 47.88025898033584), 'unit': 'Pa'})
+        self.assert_response(self.client.get('/api/v1/cases'), 200, [record])
+        self.assertEqual(self.client.post('/api/v1/cases', json=INPUT).json()['id'], 2)
+
     def test_calculate_matches_core_without_saving_or_output(self):
         original = deepcopy(INPUT)
         out, err = io.StringIO(), io.StringIO()
