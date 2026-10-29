@@ -7,6 +7,7 @@ import { BinghamRheologyStudy } from '../features/rheology/BinghamRheologyStudy'
 import { PowerLawRheologyStudy } from '../features/rheology/PowerLawRheologyStudy';
 import { GeneralizedHBRheologyStudy } from '../features/rheology/GeneralizedHBRheologyStudy';
 import { HerschelBulkleyRheologyStudy } from '../features/rheology/HerschelBulkleyRheologyStudy';
+import { GelBreakPressureStudy } from '../features/rheology/GelBreakPressureStudy';
 import type { Inputs, Result, Snapshot, SavedCase, Section } from '../features/hydraulics/types';
 
 const defaultSection: Section = { length_m: 100, pipe_id_m: 0.08, pipe_od_m: 0.1, hole_id_m: 0.2 };
@@ -39,7 +40,7 @@ async function request<T>(path: string, input?: Inputs): Promise<T> {
 }
 
 export default function App() {
-  const [study, setStudy] = useState<'hydraulics' | 'torque-drag' | 'nozzle-velocity' | 'bit-nozzle-pressure-loss' | 'bingham-rheology' | 'power-law-rheology' | 'generalized-hb-rheology' | 'herschel-bulkley-rheology'>('hydraulics');
+  const [study, setStudy] = useState<'hydraulics' | 'torque-drag' | 'nozzle-velocity' | 'bit-nozzle-pressure-loss' | 'bingham-rheology' | 'power-law-rheology' | 'generalized-hb-rheology' | 'herschel-bulkley-rheology' | 'gel-break-pressure'>('hydraulics');
   const [inputs, setInputs] = useState(initial);
   const [snapshot, setSnapshot] = useState<Snapshot | null>(null);
   const [cases, setCases] = useState<SavedCase[]>([]);
@@ -131,11 +132,16 @@ export default function App() {
           <span className="nav-index" aria-hidden="true">08</span>Herschel–Bulkley study
           <small>Yield stress · consistency · shear curve</small>
         </button>
-        <p className="nav-note">Eight independent studies.<br />Only hydraulic snapshots are saved locally; other studies are temporary.</p>
+        <button type="button" aria-current={study === 'gel-break-pressure' ? 'page' : undefined}
+          aria-controls="gel-break-view" onClick={() => setStudy('gel-break-pressure')}>
+          <span className="nav-index" aria-hidden="true">09</span>Gel and break pressure study
+          <small>Fann 3 rpm · string interior</small>
+        </button>
+        <p className="nav-note">Nine independent studies.<br />Only hydraulic snapshots are saved locally; other studies are temporary.</p>
       </nav>
     <main>
-      <div className="view-heading"><div><p className="eyebrow">Analysis / {study === 'hydraulics' ? '01' : study === 'torque-drag' ? '02' : study === 'nozzle-velocity' ? '03' : study === 'bit-nozzle-pressure-loss' ? '04' : study === 'bingham-rheology' ? '05' : study === 'power-law-rheology' ? '06' : study === 'herschel-bulkley-rheology' ? '08' : '07'}</p>
-        <h2>{study === 'hydraulics' ? 'Hydraulics' : study === 'torque-drag' ? 'Torque & drag' : study === 'nozzle-velocity' ? 'Nozzle velocity' : study === 'bit-nozzle-pressure-loss' ? 'Bit/nozzle pressure loss' : study === 'bingham-rheology' ? 'Bingham rheology' : study === 'power-law-rheology' ? 'Power Law rheology' : study === 'herschel-bulkley-rheology' ? 'Herschel–Bulkley rheology' : 'Generalized Herschel–Bulkley rheology'}</h2></div>
+      <div className="view-heading"><div><p className="eyebrow">Analysis / {study === 'hydraulics' ? '01' : study === 'torque-drag' ? '02' : study === 'nozzle-velocity' ? '03' : study === 'bit-nozzle-pressure-loss' ? '04' : study === 'bingham-rheology' ? '05' : study === 'power-law-rheology' ? '06' : study === 'herschel-bulkley-rheology' ? '08' : study === 'gel-break-pressure' ? '09' : '07'}</p>
+        <h2>{study === 'hydraulics' ? 'Hydraulics' : study === 'torque-drag' ? 'Torque & drag' : study === 'nozzle-velocity' ? 'Nozzle velocity' : study === 'bit-nozzle-pressure-loss' ? 'Bit/nozzle pressure loss' : study === 'bingham-rheology' ? 'Bingham rheology' : study === 'power-law-rheology' ? 'Power Law rheology' : study === 'herschel-bulkley-rheology' ? 'Herschel–Bulkley rheology' : study === 'gel-break-pressure' ? 'Gel and break pressure' : 'Generalized Herschel–Bulkley rheology'}</h2></div>
         <span className="view-mode">{study === 'hydraulics' ? 'SNAPSHOT WORKSPACE' : 'CALCULATE ONLY'}</span></div>
       {/* Keep inactive studies mounted so navigation never discards work or repeats requests. */}
       <div id="hydraulics-view" hidden={study !== 'hydraulics'}>
@@ -203,7 +209,8 @@ export default function App() {
       <div id="power-law-view" hidden={study !== 'power-law-rheology'}><PowerLawRheologyStudy /></div>
       <div id="generalized-hb-view" hidden={study !== 'generalized-hb-rheology'}><GeneralizedHBRheologyStudy /></div>
       <div id="herschel-bulkley-view" hidden={study !== 'herschel-bulkley-rheology'}><HerschelBulkleyRheologyStudy /></div>
-      <footer><strong>Know the boundary.</strong> Hydraulics excludes cuttings, bit optimization, swab/surge, real-time data and torque/drag coupling. Its vertical model excludes eccentricity, roughness, inclination, non-Newtonian rheology and thermal effects. The standalone Bingham, Power Law, conventional Herschel–Bulkley and generalized parametric studies are not coupled to hydraulics; each has its own limits. The separate torque/drag study has its own straight-well limits. Independently validate before any engineering use.</footer>
+      <div id="gel-break-view" hidden={study !== 'gel-break-pressure'}><GelBreakPressureStudy /></div>
+      <footer><strong>Know the boundary.</strong> Hydraulics excludes cuttings, bit optimization, swab/surge, real-time data and torque/drag coupling. Its vertical model excludes eccentricity, roughness, inclination, non-Newtonian rheology and thermal effects. The standalone rheology and gel studies are not coupled to hydraulics; each has its own limits. The separate torque/drag study has its own straight-well limits. Independently validate before any engineering use.</footer>
     </main>
     </div>
   </>;

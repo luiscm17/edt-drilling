@@ -443,6 +443,48 @@ python -m unittest discover -s tests -p 'test_power_law_rheology.py' -v
 python -m unittest discover -s tests -p 'test_api.py' -k power_law -v
 ```
 
+### Zero-second gel / string-interior break-gel pressure
+
+`POST /api/v1/rheology/gel-break-pressure/calculate` is an independent,
+stateless SI study, not a hydraulic case calculation. It never saves or consumes
+IDs. `/docs` and `/openapi.json` expose its strict request and result schemas.
+
+```json
+{"dial_3_rpm":10,"components":[{"length_m":100,"inner_diameter_m":0.1},{"length_m":50,"inner_diameter_m":0.05}]}
+```
+
+The 3-rpm Fann dial defines **zero-second gel**, not a timed-gel measurement.
+The example returns `gel_stress.value` approximately `5.0992475814 Pa` and
+`pressure.value` approximately `40793.980651 Pa`, with two ordered
+`components` contributions of approximately `20396.990326 Pa` each.
+Each component echoes `length_m` and `inner_diameter_m` and supplies `pressure_pa`.
+The response identifies the source dial/RPM and conversion constants, quantity
+names/units, model `openoil.rheology.fann-zero-second-gel-break-pressure`, model
+version `1.0.0`, input/result schema version `1`, applicability and explicit
+`scope: "string interior only"`.
+
+Dial must be a finite nonnegative number (zero returns zero pressure); at least
+one component with positive finite length and inner diameter in metres is
+required. Missing/extra fields, strings, booleans, malformed JSON, nonfinite or
+out-of-bound inputs return 422 `{"detail":"invalid request body"}`.
+Unrepresentable intermediate or final values return 422
+`{"detail":"calculation outside finite numerical range"}`. Success and rejection
+produce no handler stdout/stderr, leave stored cases unchanged and consume no ID.
+
+The pure `openoil.domain.gel_break_pressure.calculate(dial_3_rpm, components)`
+accepts ordered `Component(length_m, inner_diameter_m)` records and raises
+`ValueError` for invalid input. It reuses the existing Fann stress conversion:
+`tau_g = dial_3_rpm * 0.01065 * 47.88025898033584 Pa` and
+`p = 4*tau_g*sum(length_m/inner_diameter_m)`.
+This is **string interior only**: no annulus, timed gels, tool-joint losses,
+Herschel–Bulkley fitting, hydraulic coupling or WellPlan parity. Not validated
+for field decisions. See [the source/model boundary](../research/rheology/gel-break-boundary.md).
+
+Use the read-only Docker runner in “API and full-suite verification” below with
+`-p 'test_gel_break_pressure.py'` first, then `-p 'test_api.py'` and the backend
+suite. The tests cover numerical conversion, zero, geometry, finite-range
+rejection, source/units, statelessness and existing-route isolation.
+
 ### Calculate-only Bingham rheology study
 
 `POST /api/v1/rheology/bingham/calculate` accepts a raw JSON object and returns a

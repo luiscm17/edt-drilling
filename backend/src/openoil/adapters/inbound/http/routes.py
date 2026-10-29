@@ -12,6 +12,8 @@ from openoil.adapters.inbound.http.schemas import (
     CalculationInput,
     GeneralizedHBInput,
     GeneralizedHBResult,
+    GelBreakPressureInput,
+    GelBreakPressureResult,
     HerschelBulkleyInput,
     HerschelBulkleyResult,
     NozzleVelocityInput,
@@ -23,6 +25,7 @@ from openoil.adapters.inbound.http.schemas import (
 from openoil.application import studies
 from openoil.domain import (
     bingham_rheology,
+    gel_break_pressure,
     herschel_bulkley_rheology,
     power_law_rheology,
     torque_drag,
@@ -31,6 +34,22 @@ from openoil.domain import (
 
 def register_routes(app, service):
     router = APIRouter(prefix="/api/v1")
+
+    @router.post(
+        "/rheology/gel-break-pressure/calculate",
+        response_model=GelBreakPressureResult,
+    )
+    def calculate_gel_break_pressure(inputs: GelBreakPressureInput):
+        """Independent 3 rpm zero-second gel study; string interior only.
+
+        Lengths/inner diameters in m; gel stress and component/total pressure in Pa.
+        Excludes annulus, timed gels and tool joints; no persistence or WellPlan parity.
+        """
+        return studies.calculate_gel_break_pressure(
+            inputs.dial_3_rpm,
+            [gel_break_pressure.Component(**component.model_dump())
+             for component in inputs.components],
+        )
 
     @router.post(
         "/rheology/bingham/calculate",
