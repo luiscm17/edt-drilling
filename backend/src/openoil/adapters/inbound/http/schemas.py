@@ -304,6 +304,31 @@ class NozzleVelocityResult(BaseModel):
     velocity_m_s: float = Field(gt=0)
 
 
+class BitHydraulicPowerInput(BaseModel):
+    model_config = ConfigDict(extra="forbid", strict=True, allow_inf_nan=False)
+    flow_m3_s: float = Field(gt=0)
+    pressure_loss_pa: float = Field(gt=0)
+    pressure_boundary: Literal["pipe", "annulus"]
+
+
+class BitHydraulicPowerQuantity(BaseModel):
+    model_config = ConfigDict(extra="forbid", strict=True, allow_inf_nan=False)
+    quantity: Literal["hydraulic_power"]
+    value: float = Field(gt=0)
+    unit: Literal["hp"]
+
+
+class BitHydraulicPowerResult(BaseModel):
+    model_config = ConfigDict(extra="forbid", strict=True, allow_inf_nan=False)
+    power: BitHydraulicPowerQuantity
+    pressure_boundary: Literal["pipe", "annulus"]
+    model_id: Literal["openoil.hydraulics.documented-pressure-loss-power"]
+    model_version: Literal["1.0.0"]
+    input_schema_version: Literal["1"]
+    result_schema_version: Literal["1"]
+    applicability: "BitNozzleApplicability"
+
+
 class BitNozzlePressureLossInput(BaseModel):
     model_config = ConfigDict(extra="forbid", strict=True, allow_inf_nan=False)
     density_kg_m3: float = Field(gt=0)

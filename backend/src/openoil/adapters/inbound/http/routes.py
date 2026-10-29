@@ -8,6 +8,8 @@ from openoil.adapters.inbound.http.schemas import (
     BinghamFannRheologyInput,
     BinghamFannRheologyResult,
     BitNozzlePressureLossInput,
+    BitHydraulicPowerInput,
+    BitHydraulicPowerResult,
     BitNozzlePressureLossResult,
     CalculationInput,
     GeneralizedHBInput,
@@ -111,6 +113,11 @@ def register_routes(app, service):
             for reading in inputs.readings
         ]
         return studies.calculate_power_law_rheology(readings)
+
+    @router.post("/bit-hydraulic-power/calculate", response_model=BitHydraulicPowerResult)
+    def calculate_bit_hydraulic_power(inputs: BitHydraulicPowerInput):
+        """Calculate from user-supplied pipe/annulus pressure loss; not bit loss or optimization."""
+        return studies.calculate_bit_hydraulic_power(**inputs.model_dump())
 
     @router.post(
         "/bit-nozzle-pressure-loss/calculate",
