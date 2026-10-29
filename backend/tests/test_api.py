@@ -238,6 +238,13 @@ class ApiTests(unittest.TestCase):
         self.assertAlmostEqual(result['consistency_index']['value'], 0.6639753206166239)
         self.assertEqual(result['consistency_index']['unit'], 'Pa·s^n')
         self.assertEqual((out.getvalue(), err.getvalue()), ('', ''))
+        zero_observation = {'readings': [*data['readings'][:2], {'rpm': 100, 'dial': 0}]}
+        zero_result = self.client.post(route, json=zero_observation)
+        self.assertEqual(zero_result.status_code, 200, zero_result.text)
+        self.assertEqual(zero_result.json()['readings'][0]['shear_stress_pa'], 0)
+        self.assertGreater(zero_result.json()['model_curve'][0]['shear_stress_pa'], 0)
+        self.assertAlmostEqual(zero_result.json()['flow_behavior_index']['value'],
+                               result['flow_behavior_index']['value'])
         for old_route in ['/api/v1/calculate', '/api/v1/cases',
                           '/api/v1/bit-nozzle-pressure-loss/calculate']:
             self.assert_response(self.client.post(old_route, json=data), 422,

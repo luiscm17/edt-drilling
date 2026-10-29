@@ -4,9 +4,9 @@ from collections.abc import Sequence
 from math import exp, isfinite, log
 
 from openoil.domain.bingham_rheology import (
-    FannReading,
     SHEAR_RATE_PER_RPM,
     STRESS_PA_PER_DIAL,
+    FannReading,
 )
 
 
