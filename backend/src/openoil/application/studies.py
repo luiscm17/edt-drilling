@@ -9,6 +9,7 @@ from openoil.domain import (
     generalized_hb_rheology,
     gel_break_pressure,
     herschel_bulkley_rheology,
+    herschel_bulkley_fit,
     newtonian_rheology,
     nozzle_velocity,
     power_law_rheology,
@@ -46,6 +47,13 @@ def calculate_bingham_rheology(
 def calculate_generalized_hb_rheology(**parameters) -> dict:
     try:
         return generalized_hb_rheology.calculate(**parameters)
+    except ValueError as error:
+        raise UnsupportedInput(str(error)) from None
+
+
+def calculate_herschel_bulkley_fit(readings: Sequence[bingham_rheology.FannReading]) -> dict:
+    try:
+        return herschel_bulkley_fit.calculate(readings)
     except ValueError as error:
         raise UnsupportedInput(str(error)) from None
 

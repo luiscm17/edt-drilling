@@ -11,6 +11,7 @@ OpenOil is a browser-based drilling-engineering workbench for transparent, bound
 - **Bingham rheology:** standalone plastic-viscosity/yield-point derivation from 300/600 RPM readings, with an SI shear curve; not a full rheology or hydraulics model.
 - **Power Law rheology:** standalone flow-behavior/consistency derivation from positive 300/600 RPM Fann readings, with an SI curve and observed points; not a hydraulic or full-fluid fit.
 - **Herschel–Bulkley rheology:** evaluate supplied SI yield stress, consistency and flow index as the m=1 generalized model; no Fann fitting or hydraulic coupling.
+- **Conventional HB fit:** separate calculate-only multi-reading Fann fit with nonnegative yield/consistency, a bounded discrete positive exponent search, measured/predicted SI data and residual/ambiguity diagnostics. No uniqueness, vendor parity or field-validity claim; see [the numerical contract](research/rheology/herschel-bulkley-fit-boundary.md).
 - **Generalized Herschel–Bulkley rheology:** evaluate explicitly supplied SI parameters and inspect a modeled shear curve; no Fann fitting, foam-pressure solver or hydraulic coupling.
 - **Zero-second gel and break pressure:** derive gel stress from a 3 rpm Fann reading and calculate string-interior pressure with a component breakdown in SI units; excludes timed gels, annulus and full hydraulics.
 

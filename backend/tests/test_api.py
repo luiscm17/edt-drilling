@@ -86,6 +86,45 @@ class ApiTests(unittest.TestCase):
         self.assert_response(self.client.get('/api/v1/cases'), 200, [record])
         self.assertEqual(self.client.post('/api/v1/cases', json=INPUT).json()['id'], 2)
 
+    def test_hb_fit_is_strict_silent_stateless_and_separate(self):
+        route = '/api/v1/rheology/herschel-bulkley-fit/calculate'
+        data = {'readings': [{'rpm': g / 1.70333, 'dial': t / (0.01065 * 47.88025898033584)}
+                             for g, t in [(1, 5), (4, 8), (9, 11)]]}
+        record = self.client.post('/api/v1/cases', json=INPUT).json()
+        out, err = io.StringIO(), io.StringIO()
+        with redirect_stdout(out), redirect_stderr(err):
+            response = self.client.post(route, json=data)
+            self.assertEqual(response.status_code, 200, response.text)
+            body = response.json()
+            self.assertEqual(body['model_id'], 'openoil.rheology.fann-herschel-bulkley-fit')
+            self.assertEqual(body['model_version'], '1.0.0')
+            self.assertEqual((body['input_schema_version'], body['result_schema_version']), ('1', '1'))
+            self.assertAlmostEqual(body['parameters']['yield_stress_pa']['value'], 2)
+            self.assertEqual(body['parameters']['consistency_index_pa_s_n']['unit'], 'Pa·s^n')
+            self.assertEqual(len(body['points']), 3)
+            self.assertEqual(body['diagnostics']['evaluations'], 391)
+            self.assertIn('No WellPlan', body['applicability']['limitations'])
+            invalid = [({}, 'invalid request body'), (dict(data, extra=1), 'invalid request body'),
+                       ({'readings': data['readings'][:2]}, 'invalid request body'),
+                       ({'readings': data['readings'] + data['readings'][:1]}, 'rpm readings must be unique'),
+                       ({'readings': [{'rpm': r, 'dial': 1} for r in [1, 2, 3]]}, 'degenerate readings: insufficient stress variation')]
+            for field, value in [('rpm', True), ('rpm', 0), ('dial', -1), ('dial', '1')]:
+                bad = deepcopy(data); bad['readings'][0][field] = value
+                invalid.append((bad, 'invalid request body'))
+            for bad, detail in invalid:
+                self.assert_response(self.client.post(route, json=bad), 422, {'detail': detail})
+                self.assert_response(self.client.get('/api/v1/cases'), 200, [record])
+            self.assert_response(self.client.post(route, content='{"readings":[{"rpm":NaN,"dial":1}]}',
+                                 headers={'content-type': 'application/json'}),
+                                 422, {'detail': 'invalid request body'})
+            # Existing parametric study still has its exact supplied-parameter meaning.
+            self.assert_response(self.client.post('/api/v1/rheology/herschel-bulkley/calculate', json=data),
+                                 422, {'detail': 'invalid request body'})
+        self.assertEqual((out.getvalue(), err.getvalue()), ('', ''))
+        self.assert_response(self.client.get('/api/v1/cases'), 200, [record])
+        self.assert_response(self.client.get('/api/v1/cases/1'), 200, record)
+        self.assertEqual(self.client.post('/api/v1/cases', json=INPUT).json()['id'], 2)
+
     def test_bit_nozzle_pressure_loss_is_separate_stateless_and_validated(self):
         data = {'density_kg_m3': 1198.2642731689612,
                 'flow_m3_s': 296 * 0.003785411784 / 60,

@@ -35,6 +35,22 @@ function api(records: typeof record[] = []) {
 }
 
 describe('OpenOil public v1 workbench', () => {
+  it('opens the separate HB fit by keyboard and retains hydraulic and parametric inputs', async () => {
+    const fetcher = api([record]); const user = userEvent.setup(); render(<App />);
+    await user.click(await screen.findByRole('button', { name: /Load case 1/ }));
+    await screen.findByRole('table', { name: 'Section pressure losses' });
+    const nav = screen.getByRole('button', { name: /Conventional HB fit study/ });
+    nav.focus(); await user.keyboard('{Enter}');
+    expect(nav).toHaveAttribute('aria-current', 'page');
+    expect(screen.getByRole('link', { name: 'Skip to inputs' })).toHaveAttribute('href', '#herschel-bulkley-fit');
+    await user.type(screen.getByLabelText('HB reading 1 RPM'), '100');
+    await user.click(screen.getByRole('button', { name: /Herschel–Bulkley study Yield stress/ }));
+    expect(screen.getByLabelText('Yield stress (Pa)')).toHaveValue(null);
+    await user.click(screen.getByRole('button', { name: /Hydraulics & saved cases/ }));
+    expect(screen.getByRole('table', { name: 'Section pressure losses' })).toHaveTextContent('1,000');
+    await user.click(nav); expect(screen.getByLabelText('HB reading 1 RPM')).toHaveValue(100);
+    expect(fetcher.mock.calls.map(([url]) => url)).toEqual(['/api/v1/cases', '/api/v1/cases/1']);
+  });
   it('navigates to Newtonian by keyboard without losing hydraulic snapshots or sibling inputs', async () => {
     const fetcher = api([record]); const user = userEvent.setup(); render(<App />);
     await user.click(await screen.findByRole('button', { name: /Load case 1/ }));

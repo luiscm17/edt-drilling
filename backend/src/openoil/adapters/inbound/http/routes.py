@@ -14,6 +14,8 @@ from openoil.adapters.inbound.http.schemas import (
     GeneralizedHBResult,
     GelBreakPressureInput,
     GelBreakPressureResult,
+    HerschelBulkleyFitInput,
+    HerschelBulkleyFitResult,
     HerschelBulkleyInput,
     HerschelBulkleyResult,
     NewtonianFannRheologyInput,
@@ -74,6 +76,16 @@ def register_routes(app, service):
             for reading in inputs.readings
         ]
         return studies.calculate_bingham_rheology(readings)
+
+    @router.post(
+        "/rheology/herschel-bulkley-fit/calculate",
+        response_model=HerschelBulkleyFitResult,
+    )
+    def calculate_herschel_bulkley_fit(inputs: HerschelBulkleyFitInput):
+        """Calculate-only bounded conventional fit; diagnostics are not accuracy or uniqueness certification."""
+        return studies.calculate_herschel_bulkley_fit([
+            bingham_rheology.FannReading(**p.model_dump()) for p in inputs.readings
+        ])
 
     @router.post(
         "/rheology/herschel-bulkley/calculate",

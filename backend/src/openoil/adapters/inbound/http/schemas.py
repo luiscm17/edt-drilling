@@ -254,6 +254,45 @@ class HerschelBulkleyResult(BaseModel):
     applicability: BinghamFannApplicability
 
 
+class HerschelBulkleyFitInput(BaseModel):
+    model_config = ConfigDict(extra="forbid", strict=True, allow_inf_nan=False)
+    readings: list[FannReadingInput] = Field(min_length=3, max_length=1000)
+
+
+class HerschelBulkleyFitPoint(BinghamFannReadingResult):
+    predicted_stress_pa: float = Field(ge=0)
+    residual_pa: float
+
+
+class HerschelBulkleyFitDiagnostics(BaseModel):
+    model_config = ConfigDict(extra="forbid", strict=True, allow_inf_nan=False)
+    objective: Literal["unweighted stress least squares; discrete n grid"]
+    sse_pa2: float = Field(ge=0)
+    rmse_pa: float = Field(ge=0)
+    max_abs_residual_pa: float = Field(ge=0)
+    evaluations: Literal[391]
+    n_min: Literal[0.05]
+    n_max: Literal[2.0]
+    n_step: Literal[0.005]
+    near_optimal_n_min: float = Field(ge=0.05, le=2)
+    near_optimal_n_max: float = Field(ge=0.05, le=2)
+    near_optimal_count: int = Field(ge=1, le=391)
+    at_n_bound: bool
+    warning: str
+
+
+class HerschelBulkleyFitResult(BaseModel):
+    model_config = ConfigDict(extra="forbid", strict=True)
+    parameters: HerschelBulkleyParameters
+    points: list[HerschelBulkleyFitPoint]
+    diagnostics: HerschelBulkleyFitDiagnostics
+    model_id: Literal["openoil.rheology.fann-herschel-bulkley-fit"]
+    model_version: Literal["1.0.0"]
+    input_schema_version: Literal["1"]
+    result_schema_version: Literal["1"]
+    applicability: BinghamFannApplicability
+
+
 class NozzleVelocityInput(BaseModel):
     model_config = ConfigDict(extra="forbid", strict=True, allow_inf_nan=False)
     flow_m3_s: float = Field(gt=0)
