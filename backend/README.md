@@ -417,6 +417,19 @@ python -m unittest discover -s tests -p 'test_generalized_hb_rheology.py' -v
 python -m unittest discover -s tests -p 'test_api.py' -k generalized_hb -v
 ```
 
+### Calculate-only Herschel–Bulkley rheology study
+
+`POST /api/v1/rheology/herschel-bulkley/calculate` evaluates the conventional equation `τ = τ₀ + K γⁿ` from explicitly supplied SI parameters; it does not fit Fann observations. Input is `{"yield_stress_pa":3,"consistency_index_pa_s_n":0.2,"flow_behavior_index":1,"shear_rates_s_inv":[0,40]}`. The response contains parameter values/units, the ordered shear-rate/stress curve, model/schema versions and applicability limits. The example returns 3 Pa at zero shear and 11 Pa at 40 s⁻¹.
+
+Yield stress and consistency index must be finite and nonnegative, n positive finite, and rates nonempty, unique, finite and nonnegative. Unknown fields, wrong types, booleans, malformed JSON or nonfinite input are rejected with 422 `{"detail":"invalid request body"}`; duplicate values or unrepresentable outputs are rejected with a specific 422 detail. The endpoint is stateless and does not change cases or consume IDs. The curve has no measured points, and the study does not integrate with hydraulics or calculate gel strengths/pressure to break gel. For the equation, SI contract and limits of static reference evidence, see [the study boundary](../research/rheology/herschel-bulkley-boundary.md).
+
+Focused checks from `backend/` with `backend/src` on `PYTHONPATH`:
+
+```bash
+python -m unittest discover -s tests -p 'test_herschel_bulkley_rheology.py' -v
+python -m unittest discover -s tests -p 'test_api.py' -k herschel_bulkley -v
+```
+
 ### Calculate-only Power Law rheology study
 
 `POST /api/v1/rheology/power-law/calculate` accepts `{"readings":[{"rpm":300,"dial":50},{"rpm":600,"dial":75}]}`. It returns transformed observations in SI, a model curve at entered RPM values, dimensionless `flow_behavior_index` (n), `consistency_index` (K) in Pa·s^n, model/schema versions and applicability limits. For this example n is approximately `0.5849625007` and K is `0.6639753206 Pa·s^n` (independent arithmetic, not an observed reference-software output). The curve uses `τ = K γ^n`, with γ in s⁻¹ and τ in Pa. The [engineering boundary](../research/rheology/power-law-boundary.md) records the installed help equations, SI interpretation, static REA limits and validation cases.

@@ -12,6 +12,8 @@ from openoil.adapters.inbound.http.schemas import (
     CalculationInput,
     GeneralizedHBInput,
     GeneralizedHBResult,
+    HerschelBulkleyInput,
+    HerschelBulkleyResult,
     NozzleVelocityInput,
     NozzleVelocityResult,
     PowerLawRheologyResult,
@@ -19,7 +21,12 @@ from openoil.adapters.inbound.http.schemas import (
     TorqueDragResult,
 )
 from openoil.application import studies
-from openoil.domain import bingham_rheology, power_law_rheology, torque_drag
+from openoil.domain import (
+    bingham_rheology,
+    herschel_bulkley_rheology,
+    power_law_rheology,
+    torque_drag,
+)
 
 
 def register_routes(app, service):
@@ -35,6 +42,13 @@ def register_routes(app, service):
             for reading in inputs.readings
         ]
         return studies.calculate_bingham_rheology(readings)
+
+    @router.post(
+        "/rheology/herschel-bulkley/calculate",
+        response_model=HerschelBulkleyResult,
+    )
+    def calculate_herschel_bulkley_rheology(inputs: HerschelBulkleyInput):
+        return studies.calculate_herschel_bulkley_rheology(**inputs.model_dump())
 
     @router.post(
         "/rheology/generalized-hb/calculate",

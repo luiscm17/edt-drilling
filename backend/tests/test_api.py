@@ -219,6 +219,40 @@ class ApiTests(unittest.TestCase):
                                  200, expected_result(data))
 
 
+    def test_herschel_bulkley_study_is_stateless_and_strict(self):
+        route = '/api/v1/rheology/herschel-bulkley/calculate'
+        data = {'yield_stress_pa': 3, 'consistency_index_pa_s_n': 0.2,
+                'flow_behavior_index': 1, 'shear_rates_s_inv': [40, 0]}
+        record = self.client.post('/api/v1/cases', json=INPUT).json()
+        out, err = io.StringIO(), io.StringIO()
+        with redirect_stdout(out), redirect_stderr(err):
+            response = self.client.post(route, json=data)
+            for sibling in ['/api/v1/calculate', '/api/v1/cases',
+                            '/api/v1/rheology/bingham/calculate',
+                            '/api/v1/rheology/power-law/calculate',
+                            '/api/v1/rheology/generalized-hb/calculate']:
+                rejected = self.client.post(sibling, json=data)
+                self.assert_response(rejected, 422, {'detail': 'invalid request body'})
+            for invalid in [dict(data, extra=1), dict(data, flow_behavior_index=True),
+                            dict(data, shear_rates_s_inv=[0, 0])]:
+                rejected = self.client.post(route, json=invalid)
+                self.assertEqual(rejected.status_code, 422, rejected.text)
+        self.assertEqual((out.getvalue(), err.getvalue()), ('', ''))
+        self.assertEqual(response.status_code, 200, response.text)
+        body = response.json()
+        self.assertEqual(body['model_id'], 'openoil.rheology.herschel-bulkley-parametric')
+        self.assertEqual(body['parameters']['yield_stress_pa'], {'value': 3, 'unit': 'Pa'})
+        self.assertEqual(body['parameters']['consistency_index_pa_s_n'],
+                         {'value': 0.2, 'unit': 'Pa·s^n'})
+        self.assertEqual(body['parameters']['flow_behavior_index'], {'value': 1, 'unit': '1'})
+        self.assertEqual(body['curve'], [
+            {'shear_rate_s_inv': 0, 'shear_stress_pa': 3},
+            {'shear_rate_s_inv': 40, 'shear_stress_pa': 11},
+        ])
+        for _ in range(4):
+            self.assert_response(self.client.get('/api/v1/cases'), 200, [record])
+        self.assertEqual(self.client.post('/api/v1/cases', json=INPUT).json()['id'], 2)
+
     def test_generalized_hb_parametric_study_is_stateless_and_strict(self):
         route = '/api/v1/rheology/generalized-hb/calculate'
         data = {'reference_stress_pa': 10, 'zero_shear_stress_pa': 3,
